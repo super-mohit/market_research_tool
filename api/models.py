@@ -48,6 +48,9 @@ class JobStatusResponse(BaseModel):
     job_id: str
     status: str = Field(..., description="Current job status: pending, running, completed, or failed")
     message: str = Field(..., description="Detailed status message including RAG upload status if applicable")
+    stage: Optional[str] = Field(None, description="The current machine-readable stage of the pipeline")
+    progress: Optional[int] = Field(None, description="An estimated progress percentage for the current stage")
+    logs: Optional[List[str]] = Field(None, description="A list of the latest log messages from the job.")
 
 
 class StructuredDataItem(BaseModel):

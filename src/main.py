@@ -3,7 +3,8 @@ import json
 import asyncio
 import time
 from concurrent.futures import ThreadPoolExecutor
-import os # Make sure os is imported
+import os
+from typing import Callable, Any  # <-- Import Callable and Any
 
 # Keep all your existing phase imports
 from src.phase1_planner import generate_search_queries
@@ -17,7 +18,11 @@ from src.config import assert_all_env
 # Configuration: adjust parallelism limits
 MAX_BATCH_WORKERS = 6
 
-async def execute_research_pipeline(user_query: str) -> dict:
+# --- NEW: Update function signature to accept a callback ---
+async def execute_research_pipeline(
+    user_query: str, 
+    update_status: Callable # The signature is more complex now, so we simplify for typing
+) -> dict:
     """
     Orchestrates the market research pipeline and returns a structured result.
     This is the core logic called by the API background task.
@@ -25,6 +30,7 @@ async def execute_research_pipeline(user_query: str) -> dict:
     assert_all_env()
     start_time = time.perf_counter()
     print(f"--- Starting Pipeline for query: '{user_query[:50]}...' ---")
+    await update_status(stage="planning", progress=10, message="Analyzing request and planning search strategies...")
 
     # Phase 1: Generate search queries
     search_queries = generate_search_queries(user_query)
@@ -32,18 +38,23 @@ async def execute_research_pipeline(user_query: str) -> dict:
         raise ValueError("Pipeline Error: No search queries were generated.")
     total_queries = sum(len(queries) for queries in search_queries.values())
     print(f"-> Phase 1 Complete: {total_queries} queries generated across {len(search_queries)} buckets.")
+    
+    await update_status(stage="searching", progress=25, message=f"Scouring {total_queries} web sources...")
 
     # Phase 2: Execute CSE searches
     loop = asyncio.get_running_loop()
+    # --- REVERT THIS CALL ---
     tagged_urls = await loop.run_in_executor(
         ThreadPoolExecutor(MAX_SEARCH_WORKERS),
         execute_cse_searches,
         search_queries
+        # No more update_status callback passed here
     )
     if not tagged_urls:
         raise ValueError("Pipeline Error: No URLs were collected from search.")
     
     print(f"-> Phase 2 Complete: {len(tagged_urls)} URLs collected across buckets.")
+    await update_status(stage="synthesizing", progress=50, message=f"Analyzing {len(tagged_urls)} collected documents...")
 
     # 2-a: Collect bucketed URLs once
     # tagged_urls is List[Tuple[url, bucket]]
@@ -81,9 +92,12 @@ async def execute_research_pipeline(user_query: str) -> dict:
         max_workers=MAX_BATCH_WORKERS
     )
     print(f"-> Phase 3 Complete: {len(intermediate_reports)} intermediate reports generated.")
+    await update_status(stage="extracting", progress=75, message="Organizing findings into structured data...")
 
     # Phase 4 & 5: Run final synthesis and structured extraction concurrently
     print("-> Starting final report synthesis and data extraction in parallel...")
+    await update_status(stage="compiling", progress=90, message="Generating the final executive report...")
+
     final_report_task = loop.run_in_executor(
         ThreadPoolExecutor(1),
         synthesize_final_report,
@@ -137,8 +151,12 @@ Search tags/topics - Product, coating, architectural or similar.
 Datasources/URLs (https://www.paint.org/ , https://www.coatingsworld.com/ , https://www.pcimag.com/ )"""
     
     async def main():
+        # Dummy callback for standalone testing
+        async def dummy_callback(stage: str, progress: int, message: str):
+            print(f"[{progress}%] {stage}: {message}")
+        
         try:
-            results = await execute_research_pipeline(USER_QUERY)
+            results = await execute_research_pipeline(USER_QUERY, dummy_callback)
             print("\n\n--- PIPELINE RESULT ---")
             print("\n## FINAL REPORT (Snippet) ##")
             print(results['final_report_markdown'][:500] + "...")

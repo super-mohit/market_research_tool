@@ -16,3 +16,5 @@ database/__pycache__/
 
 reports/
 extractions/
+digest.txt
+make_ingest.py

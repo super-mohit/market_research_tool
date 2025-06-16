@@ -1,5 +1,5 @@
 # database/models.py
-from sqlalchemy import Column, String, JSON, Boolean, Text
+from sqlalchemy import Column, String, JSON, Boolean, Text, Integer
 from database.session import Base
 
 class Job(Base):
@@ -22,3 +22,10 @@ class Job(Base):
     
     # To store the conversational history for RAG
     rag_chat_context = Column(Text, default="") 
+
+    # --- NEW: Add these two columns for structured status tracking ---
+    job_stage = Column(String, nullable=True, default="pending")
+    job_progress = Column(Integer, nullable=True, default=0)
+    
+    # --- NEW: Add this column to store live logs ---
+    logs = Column(JSON, default=[]) 

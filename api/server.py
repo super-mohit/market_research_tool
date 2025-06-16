@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 import requests
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 # --- DB Imports ---
 from database.session import SessionLocal, init_db, engine
@@ -67,16 +68,32 @@ def run_and_store_results(job_id: str, query: str, should_upload_to_rag: bool):
 
         print(f"Job {job_id}: Starting research pipeline...")
         job.status = 'running'
+        job.job_stage = 'initializing'
+        job.job_progress = 5
         db.commit()
+
+        # --- MODIFIED: Simplify the callback again ---
+        async def update_status_in_db(stage: str = None, progress: int = None, message: str = None):
+            job_to_update = db.query(DBJob).filter(DBJob.id == job_id).first()
+            if job_to_update:
+                if stage: job_to_update.job_stage = stage
+                if progress: job_to_update.job_progress = progress
+                db.commit()
+            await asyncio.sleep(0)
 
         # Run the pipeline in a new event loop
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
-        result_data = loop.run_until_complete(execute_research_pipeline(query))
+        # --- MODIFIED: Pass the callback to the pipeline ---
+        result_data = loop.run_until_complete(
+            execute_research_pipeline(query, update_status_in_db)
+        )
         
         job.result = result_data
         job.status = 'completed'
+        job.job_stage = 'finished'
+        job.job_progress = 100
         db.commit()
         print(f"Job {job_id}: Pipeline completed successfully.")
         
@@ -109,6 +126,8 @@ def run_and_store_results(job_id: str, query: str, should_upload_to_rag: bool):
         job_in_db = db.query(DBJob).filter(DBJob.id == job_id).first()
         if job_in_db:
             job_in_db.status = 'failed'
+            job_in_db.job_stage = 'error'
+            job_in_db.job_progress = 0
             job_in_db.result = {"error": str(e)}
             db.commit()
     finally:
@@ -173,7 +192,10 @@ async def get_research_status(job_id: str, db: Session = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
+    # --- MODIFIED: Construct a more detailed message and response ---
     message = f"Job status is {job.status}"
+    if job.status == 'running' and job.job_stage:
+        message = f"Executing stage: {job.job_stage.replace('_', ' ').title()}"
     
     if job.upload_to_rag:
         rag_status = job.rag_status or 'unknown'
@@ -188,7 +210,15 @@ async def get_research_status(job_id: str, db: Session = Depends(get_db)):
         error_msg = job.result.get('error', 'Unknown error') if job.result else 'Unknown error'
         message = f"Job failed. Error: {error_msg}"
 
-    return {"job_id": job_id, "status": job.status, "message": message}
+    return {
+        "job_id": job_id,
+        "status": job.status,
+        "message": message,
+        "stage": job.job_stage,
+        "progress": job.job_progress,
+        # --- NEW: Return the logs array ---
+        "logs": job.logs[-10:] if job.logs else [] # Return last 10 logs
+    }
 
 
 @app.get("/api/research/result/{job_id}", response_model=ResearchResult)

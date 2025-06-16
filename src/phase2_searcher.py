@@ -28,12 +28,8 @@ def _get_service():
 def _execute_single_query(query_info: tuple) -> tuple:
     """
     Execute a single search query and return results.
-    
-    Args:
-        query_info: Tuple of (query_index, bucket, query_string, num_results)
-    
     Returns:
-        Tuple of (query_index, bucket, query_string, urls_list, error_message)
+        Tuple of (query_index, bucket, query_string, tagged_urls, error_message)
     """
     query_index, bucket, query, num_results = query_info
     urls = []
@@ -61,7 +57,6 @@ def _execute_single_query(query_info: tuple) -> tuple:
                         num=num_results
                     ).execute()
                 elif http_err.resp.status == 503:
-                    print(f"    -> 503 error for query '{query}', retrying once...")
                     time.sleep(1)  # Brief pause before retry
                     res = service.cse().list(
                         q=query,
@@ -83,28 +78,16 @@ def _execute_single_query(query_info: tuple) -> tuple:
     # Tag each URL with its bucket
     tagged = [(link, bucket) for link in urls]
     
+    # --- The return signature is now shorter ---
     return query_index, bucket, query, tagged, error_msg
 
 def execute_cse_searches(
     queries_by_type: dict[str, list[str]],
     num_results: int = MAX_SEARCH_RESULTS,
     max_workers: int = MAX_SEARCH_WORKERS
-) -> list[tuple[str, str]]:      # (url, guessed_type)
-    """
-    Executes bucketed searches using Google Custom Search Engine (CSE) API in parallel.
-
-    Args:
-        queries_by_type: A dictionary of search query strings organized by type/bucket.
-        num_results: The number of results to fetch for each query.
-        max_workers: Maximum number of parallel threads for search execution.
-
-    Returns:
-        A list of unique (URL, bucket_type) tuples.
-    """
-    # Flatten queries for thread pool execution
+) -> list[tuple[str, str]]:
     flat = [(bucket, q) for bucket, lst in queries_by_type.items() for q in lst]
-    
-    print(f"\nPhase 2: Executing {len(flat)} searches with Google CSE (parallel with {max_workers} workers)...")
+    print(f"\nPhase 2: Executing {len(flat)} searches...") # Simplified log
     
     # Validate that we can build a service first
     try:
@@ -115,35 +98,25 @@ def execute_cse_searches(
         return []
 
     all_tagged_urls: dict[str, set[str]] = collections.defaultdict(set)
-    
-    # Prepare query information for parallel execution
     query_infos = [(i, bucket, query, num_results) for i, (bucket, query) in enumerate(flat)]
     
-    # Execute searches in parallel
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all queries
         future_to_query = {
             executor.submit(_execute_single_query, query_info): query_info 
             for query_info in query_infos
         }
         
-        # Process completed queries as they finish
         for future in as_completed(future_to_query):
-            query_info = future_to_query[future]
-            query_index, bucket, query, tagged_urls, error_msg = future.result()
+            # --- MODIFIED: process the reverted return value ---
+            _query_index, _bucket, _query, tagged_urls, error_msg = future.result()
             
-            print(f"  - Completed ({query_index + 1}/{len(flat)}): \"{query}\" [{bucket}]")
-            
+            # --- NO MORE CALLBACK ---
             if error_msg:
-                print(f"    -> Error: {error_msg}")
+                print(f"    -> Error processing query: {error_msg}")
             elif tagged_urls:
                 for link, bucket in tagged_urls:
                     all_tagged_urls[bucket].add(link)
-                print(f"    -> Found {len(tagged_urls)} URLs")
-            else:
-                print(f"    -> No results found")
 
-    # flatten
     unique_tagged_urls = [(u, b) for b, urls in all_tagged_urls.items() for u in urls]
-    print(f"Successfully collected {len(unique_tagged_urls)} unique tagged URLs from parallel execution.")
+    print(f"Successfully collected {len(unique_tagged_urls)} unique tagged URLs.")
     return unique_tagged_urls

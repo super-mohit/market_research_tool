@@ -519,6 +519,9 @@ class JobStatusResponse(BaseModel):
     job_id: str
     status: str = Field(..., description="Current job status: pending, running, completed, or failed")
     message: str = Field(..., description="Detailed status message including RAG upload status if applicable")
+    stage: Optional[str] = Field(None, description="The current machine-readable stage of the pipeline")
+    progress: Optional[int] = Field(None, description="An estimated progress percentage for the current stage")
+    logs: Optional[List[str]] = Field(None, description="A list of the latest log messages from the job.")
 
 
 class StructuredDataItem(BaseModel):
@@ -588,6 +591,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 import requests
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 # --- DB Imports ---
 from database.session import SessionLocal, init_db, engine
@@ -649,16 +653,32 @@ def run_and_store_results(job_id: str, query: str, should_upload_to_rag: bool):
 
         print(f"Job {job_id}: Starting research pipeline...")
         job.status = 'running'
+        job.job_stage = 'initializing'
+        job.job_progress = 5
         db.commit()
+
+        # --- MODIFIED: Simplify the callback again ---
+        async def update_status_in_db(stage: str = None, progress: int = None, message: str = None):
+            job_to_update = db.query(DBJob).filter(DBJob.id == job_id).first()
+            if job_to_update:
+                if stage: job_to_update.job_stage = stage
+                if progress: job_to_update.job_progress = progress
+                db.commit()
+            await asyncio.sleep(0)
 
         # Run the pipeline in a new event loop
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
-        result_data = loop.run_until_complete(execute_research_pipeline(query))
+        # --- MODIFIED: Pass the callback to the pipeline ---
+        result_data = loop.run_until_complete(
+            execute_research_pipeline(query, update_status_in_db)
+        )
         
         job.result = result_data
         job.status = 'completed'
+        job.job_stage = 'finished'
+        job.job_progress = 100
         db.commit()
         print(f"Job {job_id}: Pipeline completed successfully.")
         
@@ -691,6 +711,8 @@ def run_and_store_results(job_id: str, query: str, should_upload_to_rag: bool):
         job_in_db = db.query(DBJob).filter(DBJob.id == job_id).first()
         if job_in_db:
             job_in_db.status = 'failed'
+            job_in_db.job_stage = 'error'
+            job_in_db.job_progress = 0
             job_in_db.result = {"error": str(e)}
             db.commit()
     finally:
@@ -755,7 +777,10 @@ async def get_research_status(job_id: str, db: Session = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
+    # --- MODIFIED: Construct a more detailed message and response ---
     message = f"Job status is {job.status}"
+    if job.status == 'running' and job.job_stage:
+        message = f"Executing stage: {job.job_stage.replace('_', ' ').title()}"
     
     if job.upload_to_rag:
         rag_status = job.rag_status or 'unknown'
@@ -770,7 +795,15 @@ async def get_research_status(job_id: str, db: Session = Depends(get_db)):
         error_msg = job.result.get('error', 'Unknown error') if job.result else 'Unknown error'
         message = f"Job failed. Error: {error_msg}"
 
-    return {"job_id": job_id, "status": job.status, "message": message}
+    return {
+        "job_id": job_id,
+        "status": job.status,
+        "message": message,
+        "stage": job.job_stage,
+        "progress": job.job_progress,
+        # --- NEW: Return the logs array ---
+        "logs": job.logs[-10:] if job.logs else [] # Return last 10 logs
+    }
 
 
 @app.get("/api/research/result/{job_id}", response_model=ResearchResult)
@@ -884,7 +917,7 @@ File: database/__init__.py
 File: database/models.py
 ================================================
 # database/models.py
-from sqlalchemy import Column, String, JSON, Boolean, Text
+from sqlalchemy import Column, String, JSON, Boolean, Text, Integer
 from database.session import Base
 
 class Job(Base):
@@ -907,6 +940,13 @@ class Job(Base):
     
     # To store the conversational history for RAG
     rag_chat_context = Column(Text, default="") 
+
+    # --- NEW: Add these two columns for structured status tracking ---
+    job_stage = Column(String, nullable=True, default="pending")
+    job_progress = Column(Integer, nullable=True, default=0)
+    
+    # --- NEW: Add this column to store live logs ---
+    logs = Column(JSON, default=[]) 
 
 
 ================================================
@@ -1037,7 +1077,8 @@ import json
 import asyncio
 import time
 from concurrent.futures import ThreadPoolExecutor
-import os # Make sure os is imported
+import os
+from typing import Callable, Any  # <-- Import Callable and Any
 
 # Keep all your existing phase imports
 from src.phase1_planner import generate_search_queries
@@ -1051,7 +1092,11 @@ from src.config import assert_all_env
 # Configuration: adjust parallelism limits
 MAX_BATCH_WORKERS = 6
 
-async def execute_research_pipeline(user_query: str) -> dict:
+# --- NEW: Update function signature to accept a callback ---
+async def execute_research_pipeline(
+    user_query: str, 
+    update_status: Callable # The signature is more complex now, so we simplify for typing
+) -> dict:
     """
     Orchestrates the market research pipeline and returns a structured result.
     This is the core logic called by the API background task.
@@ -1059,6 +1104,7 @@ async def execute_research_pipeline(user_query: str) -> dict:
     assert_all_env()
     start_time = time.perf_counter()
     print(f"--- Starting Pipeline for query: '{user_query[:50]}...' ---")
+    await update_status(stage="planning", progress=10, message="Analyzing request and planning search strategies...")
 
     # Phase 1: Generate search queries
     search_queries = generate_search_queries(user_query)
@@ -1066,18 +1112,23 @@ async def execute_research_pipeline(user_query: str) -> dict:
         raise ValueError("Pipeline Error: No search queries were generated.")
     total_queries = sum(len(queries) for queries in search_queries.values())
     print(f"-> Phase 1 Complete: {total_queries} queries generated across {len(search_queries)} buckets.")
+    
+    await update_status(stage="searching", progress=25, message=f"Scouring {total_queries} web sources...")
 
     # Phase 2: Execute CSE searches
     loop = asyncio.get_running_loop()
+    # --- REVERT THIS CALL ---
     tagged_urls = await loop.run_in_executor(
         ThreadPoolExecutor(MAX_SEARCH_WORKERS),
         execute_cse_searches,
         search_queries
+        # No more update_status callback passed here
     )
     if not tagged_urls:
         raise ValueError("Pipeline Error: No URLs were collected from search.")
     
     print(f"-> Phase 2 Complete: {len(tagged_urls)} URLs collected across buckets.")
+    await update_status(stage="synthesizing", progress=50, message=f"Analyzing {len(tagged_urls)} collected documents...")
 
     # 2-a: Collect bucketed URLs once
     # tagged_urls is List[Tuple[url, bucket]]
@@ -1115,9 +1166,12 @@ async def execute_research_pipeline(user_query: str) -> dict:
         max_workers=MAX_BATCH_WORKERS
     )
     print(f"-> Phase 3 Complete: {len(intermediate_reports)} intermediate reports generated.")
+    await update_status(stage="extracting", progress=75, message="Organizing findings into structured data...")
 
     # Phase 4 & 5: Run final synthesis and structured extraction concurrently
     print("-> Starting final report synthesis and data extraction in parallel...")
+    await update_status(stage="compiling", progress=90, message="Generating the final executive report...")
+
     final_report_task = loop.run_in_executor(
         ThreadPoolExecutor(1),
         synthesize_final_report,
@@ -1171,8 +1225,12 @@ Search tags/topics - Product, coating, architectural or similar.
 Datasources/URLs (https://www.paint.org/ , https://www.coatingsworld.com/ , https://www.pcimag.com/ )"""
     
     async def main():
+        # Dummy callback for standalone testing
+        async def dummy_callback(stage: str, progress: int, message: str):
+            print(f"[{progress}%] {stage}: {message}")
+        
         try:
-            results = await execute_research_pipeline(USER_QUERY)
+            results = await execute_research_pipeline(USER_QUERY, dummy_callback)
             print("\n\n--- PIPELINE RESULT ---")
             print("\n## FINAL REPORT (Snippet) ##")
             print(results['final_report_markdown'][:500] + "...")
@@ -1370,12 +1428,8 @@ def _get_service():
 def _execute_single_query(query_info: tuple) -> tuple:
     """
     Execute a single search query and return results.
-    
-    Args:
-        query_info: Tuple of (query_index, bucket, query_string, num_results)
-    
     Returns:
-        Tuple of (query_index, bucket, query_string, urls_list, error_message)
+        Tuple of (query_index, bucket, query_string, tagged_urls, error_message)
     """
     query_index, bucket, query, num_results = query_info
     urls = []
@@ -1403,7 +1457,6 @@ def _execute_single_query(query_info: tuple) -> tuple:
                         num=num_results
                     ).execute()
                 elif http_err.resp.status == 503:
-                    print(f"    -> 503 error for query '{query}', retrying once...")
                     time.sleep(1)  # Brief pause before retry
                     res = service.cse().list(
                         q=query,
@@ -1425,28 +1478,16 @@ def _execute_single_query(query_info: tuple) -> tuple:
     # Tag each URL with its bucket
     tagged = [(link, bucket) for link in urls]
     
+    # --- The return signature is now shorter ---
     return query_index, bucket, query, tagged, error_msg
 
 def execute_cse_searches(
     queries_by_type: dict[str, list[str]],
     num_results: int = MAX_SEARCH_RESULTS,
     max_workers: int = MAX_SEARCH_WORKERS
-) -> list[tuple[str, str]]:      # (url, guessed_type)
-    """
-    Executes bucketed searches using Google Custom Search Engine (CSE) API in parallel.
-
-    Args:
-        queries_by_type: A dictionary of search query strings organized by type/bucket.
-        num_results: The number of results to fetch for each query.
-        max_workers: Maximum number of parallel threads for search execution.
-
-    Returns:
-        A list of unique (URL, bucket_type) tuples.
-    """
-    # Flatten queries for thread pool execution
+) -> list[tuple[str, str]]:
     flat = [(bucket, q) for bucket, lst in queries_by_type.items() for q in lst]
-    
-    print(f"\nPhase 2: Executing {len(flat)} searches with Google CSE (parallel with {max_workers} workers)...")
+    print(f"\nPhase 2: Executing {len(flat)} searches...") # Simplified log
     
     # Validate that we can build a service first
     try:
@@ -1457,37 +1498,27 @@ def execute_cse_searches(
         return []
 
     all_tagged_urls: dict[str, set[str]] = collections.defaultdict(set)
-    
-    # Prepare query information for parallel execution
     query_infos = [(i, bucket, query, num_results) for i, (bucket, query) in enumerate(flat)]
     
-    # Execute searches in parallel
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all queries
         future_to_query = {
             executor.submit(_execute_single_query, query_info): query_info 
             for query_info in query_infos
         }
         
-        # Process completed queries as they finish
         for future in as_completed(future_to_query):
-            query_info = future_to_query[future]
-            query_index, bucket, query, tagged_urls, error_msg = future.result()
+            # --- MODIFIED: process the reverted return value ---
+            _query_index, _bucket, _query, tagged_urls, error_msg = future.result()
             
-            print(f"  - Completed ({query_index + 1}/{len(flat)}): \"{query}\" [{bucket}]")
-            
+            # --- NO MORE CALLBACK ---
             if error_msg:
-                print(f"    -> Error: {error_msg}")
+                print(f"    -> Error processing query: {error_msg}")
             elif tagged_urls:
                 for link, bucket in tagged_urls:
                     all_tagged_urls[bucket].add(link)
-                print(f"    -> Found {len(tagged_urls)} URLs")
-            else:
-                print(f"    -> No results found")
 
-    # flatten
     unique_tagged_urls = [(u, b) for b, urls in all_tagged_urls.items() for u in urls]
-    print(f"Successfully collected {len(unique_tagged_urls)} unique tagged URLs from parallel execution.")
+    print(f"Successfully collected {len(unique_tagged_urls)} unique tagged URLs.")
     return unique_tagged_urls
 
 
