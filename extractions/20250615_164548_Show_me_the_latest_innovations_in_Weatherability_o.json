@@ -1,0 +1,485 @@
+{
+  "metadata": {
+    "timestamp": "20250615_164548",
+    "original_query": "Show me the latest innovations in Weatherability of Decorative Coatings.\nWhat trends are emerging in the Sustainability of industrial coatings in 2025?\nFind recent conferences or Patentss discussing Scuff-Resistance in coatings.\n\nSearch tags/topics - Product, coating, architectural or similar.\n\nDatasources/URLs (https://www.paint.org/ , https://www.coatingsworld.com/ , https://www.pcimag.com/ )",
+    "urls_processed": 36,
+    "total_items_extracted": 60,
+    "extraction_summary": {
+      "News": 26,
+      "Patents": 6,
+      "Conference": 23,
+      "Legalnews": 1,
+      "Other": 4
+    }
+  },
+  "extracted_data": {
+    "News": [
+      {
+        "type": "News",
+        "title": "China's Architectural Paint & Coating Sector: Tough Days Ahead",
+        "summary": "China, the largest global market for architectural paint and coatings, is facing a slowdown due to a crisis in its construction sector. The explosive growth of the architectural coatings sub-segment has been halted in the last three years. The property sector's downturn, exemplified by heavily indebted developers like Evergrande and a significant drop in sales for giants like Country Garden, has dampened the demand for architectural coatings in 2023 and is expected to lead to sluggish growth in the coming years. Demand from new constructions has been sluggish, and even the repainting sub-segment is affected by consumers tightening their spending amidst economic uncertainty. The Chinese architectural coatings industry saw a dip in production volume in 2022 and is expected to decline further in 2023. Despite the downturn, market consolidation continues, with AkzoNobel acquiring Sherwin-Williams' Chinese decorative paints business to expand its presence in the country.",
+        "date": "2024-01-22",
+        "source_url": "https://www.coatingsworld.com/issues/2024-01-01/view_india_asia_pacific_reports/chinas-architectural-paint-coating-sector-tough-days-ahead/"
+      },
+      {
+        "type": "News",
+        "title": "ResearchandMarkets: Global Paints and Coatings Market Analysis and Outlook 2024-2032",
+        "summary": "The 'Paints and Coatings Market Report by Product, Material, Application, and Region 2024-2032' report has been added to ResearchAndMarkets.com's offering. The global paints and coatings market reached $177.4 billion in 2023. Looking forward, market is projected to reach $269 billion by 2032, exhibiting a growth rate (CAGR) of 4.7% during 2023-2032.",
+        "date": "2024-04-16",
+        "source_url": "https://www.coatingsworld.com/contents/view_breaking-news/2024-04-16/global-paints-and-coatings-market-analysis-and-outlook-2024-2032/"
+      },
+      {
+        "type": "News",
+        "title": "Industry Achievements in HSE Performance",
+        "summary": "The British Coatings Federation (BCF) released its 2024 Coatings Care report, showing significant improvements in the UK coatings and ink industry's sustainability performance. Key achievements from participating companies include a record low for energy use per tonne of production, a majority of sites reporting zero landfill waste, and a 7% decrease in total waste compared to the previous year. Accident rates are also at a record low.",
+        "date": "2025-01-22",
+        "source_url": "https://www.coatingsworld.com/issues/2025-01-01/view_europe-reports/latest-developments-in-the-uk-coatings-sector/"
+      },
+      {
+        "type": "News",
+        "title": "Color of the Year News",
+        "summary": "UK-based Earthborn Paints has named 'Crocky Road' as its Color of the Year for 2025. The color is described as a warm beige with green and yellow undertones. A genuine Victorian color, Crocky Road is a breathable finish suitable for older properties, helping to prevent issues like damp and mold.",
+        "date": "2025-01-22",
+        "source_url": "https://www.coatingsworld.com/issues/2025-01-01/view_europe-reports/latest-developments-in-the-uk-coatings-sector/"
+      },
+      {
+        "type": "News",
+        "title": "AI and Machine Learning In Coatings and Ink Formulation",
+        "summary": "The article discusses the application of Artificial Intelligence (AI) and Machine Learning (ML) in the coatings and ink industry, focusing on formulation. It highlights how these technologies can accelerate the development of new and sustainable products by optimizing formulations and reducing the number of required experiments. The piece also covers the role of AI in managing regulatory compliance and intellectual property, while also addressing common concerns about AI, positioning it as a tool to boost innovation and productivity.",
+        "date": "2025-03-19",
+        "source_url": "https://www.coatingsworld.com/contents/view_online-exclusives/2025-03-19/ai-and-machine-learning-in-coatings-and-ink-formulation/"
+      },
+      {
+        "type": "News",
+        "title": "Michelin Announces Construction of an Industrial Demonstrator",
+        "summary": "Michelin Announces Construction of an Industrial Demonstrator",
+        "date": "2025-06-05",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "News",
+        "title": "ACCESS Rudolf Signs Agreement with ClearEdge Solutions",
+        "summary": "ACCESS Rudolf Signs Agreement with ClearEdge Solutions",
+        "date": "2025-06-05",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "News",
+        "title": "DELTA Coatings Breaks Ground on New Headquarters",
+        "summary": "DELTA Coatings Breaks Ground on New Headquarters",
+        "date": "2025-06-05",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "News",
+        "title": "SCAQMD Public Hearing for Proposed Amendments to Solvent Cleaning Operations Rule Set for June 6",
+        "summary": "SCAQMD Public Hearing for Proposed Amendments to Solvent Cleaning Operations Rule Set for June 6",
+        "date": "2025-05-12",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "News",
+        "title": "Statement of the American Coatings Association on Tariffs Imposed on Canada, Mexico and China",
+        "summary": "Statement of the American Coatings Association on Tariffs Imposed on Canada, Mexico and China",
+        "date": "2025-03-04",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "News",
+        "title": "EPA Publishes Preliminary List of Companies Subject to TSCA Risk Evaluation Fees",
+        "summary": "EPA Publishes Preliminary List of Companies Subject to TSCA Risk Evaluation Fees",
+        "date": "2025-02-03",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "News",
+        "title": "David Fairhurst Presented with ACA's 2025 CoatingsTech Best Paper Award",
+        "summary": "David Fairhurst Presented with ACA's 2025 CoatingsTech Best Paper Award",
+        "date": "2025-04-29",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "News",
+        "title": "Follow ACA as it Celebrates the Inaugural World Paint and Coatings Week",
+        "summary": "Follow ACA as it Celebrates the Inaugural World Paint and Coatings Week",
+        "date": "2025-03-17",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "News",
+        "title": "Dr. Lipiin Sung to Deliver Mattiello Memorial Lecture at ACA's 2025 CoatingsTech Conference",
+        "summary": "Dr. Lipiin Sung to Deliver Mattiello Memorial Lecture at ACA's 2025 CoatingsTech Conference",
+        "date": "2025-02-27",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "News",
+        "title": "Experts Unite to Create Sustainable Future for Polymers",
+        "summary": "The Royal Society of Chemistry has launched the Sustainable PLFs 2040 initiative, bringing together experts from major companies like Unilever and BASF, along with academics and policymakers. [1] This collaboration aims to revolutionize the production, use, and disposal of Polymers in liquid formulations (PLFs) by 2040, a market valued at $125 billion annually. [1] The initiative will focus on developing biodegradable alternatives and creating a circular economy to mitigate the environmental impact of these widely used chemicals. [1]",
+        "date": "2025-03-28",
+        "source_url": "https://www.coatingsworld.com/issues/2025-04-01/view_breaking-news/experts-unite-to-create-sustainable-future-for-polymers/"
+      },
+      {
+        "type": "News",
+        "title": "Michelin Announces Construction of an Industrial Demonstrator",
+        "summary": "Michelin Announces Construction of an Industrial Demonstrator",
+        "date": "2025-06-05",
+        "source_url": "https://www.paint.org/coatingstech-magazine/about_coatingstech/"
+      },
+      {
+        "type": "News",
+        "title": "ACCESS Rudolf Signs Agreement with ClearEdge Solutions",
+        "summary": "ACCESS Rudolf Signs Agreement with ClearEdge Solutions",
+        "date": "2025-06-05",
+        "source_url": "https://www.paint.org/coatingstech-magazine/about_coatingstech/"
+      },
+      {
+        "type": "News",
+        "title": "DELTA Coatings Breaks Ground on New Headquarters",
+        "summary": "DELTA Coatings Breaks Ground on New Headquarters",
+        "date": "2025-06-05",
+        "source_url": "https://www.paint.org/coatingstech-magazine/about_coatingstech/"
+      },
+      {
+        "type": "News",
+        "title": "SCAQMD Public Hearing for Proposed Amendments to Solvent Cleaning Operations Rule Set for June 6",
+        "summary": "SCAQMD Public Hearing for Proposed Amendments to Solvent Cleaning Operations Rule Set for June 6",
+        "date": "2025-05-12",
+        "source_url": "https://www.paint.org/coatingstech-magazine/about_coatingstech/"
+      },
+      {
+        "type": "News",
+        "title": "Statement of the American Coatings Association on Tariffs Imposed on Canada, Mexico and China",
+        "summary": "Statement of the American Coatings Association on Tariffs Imposed on Canada, Mexico and China",
+        "date": "2025-03-04",
+        "source_url": "https://www.paint.org/coatingstech-magazine/about_coatingstech/"
+      },
+      {
+        "type": "News",
+        "title": "EPA Publishes Preliminary List of Companies Subject to TSCA Risk Evaluation Fees",
+        "summary": "EPA Publishes Preliminary List of Companies Subject to TSCA Risk Evaluation Fees",
+        "date": "2025-02-03",
+        "source_url": "https://www.paint.org/coatingstech-magazine/about_coatingstech/"
+      },
+      {
+        "type": "News",
+        "title": "David Fairhurst Presented with ACA's 2025 CoatingsTech Best Paper Award",
+        "summary": "David Fairhurst Presented with ACA's 2025 CoatingsTech Best Paper Award",
+        "date": "2025-04-29",
+        "source_url": "https://www.paint.org/coatingstech-magazine/about_coatingstech/"
+      },
+      {
+        "type": "News",
+        "title": "Follow ACA as it Celebrates the Inaugural World Paint and Coatings Week",
+        "summary": "Follow ACA as it Celebrates the Inaugural World Paint and Coatings Week",
+        "date": "2025-03-17",
+        "source_url": "https://www.paint.org/coatingstech-magazine/about_coatingstech/"
+      },
+      {
+        "type": "News",
+        "title": "Dr. Lipiin Sung to Deliver Mattiello Memorial Lecture at ACA's 2025 CoatingsTech Conference",
+        "summary": "Dr. Lipiin Sung to Deliver Mattiello Memorial Lecture at ACA's 2025 CoatingsTech Conference",
+        "date": "2025-02-27",
+        "source_url": "https://www.paint.org/coatingstech-magazine/about_coatingstech/"
+      },
+      {
+        "type": "News",
+        "title": "Koster Keunen Receives The 2024 Secretary of State's Award for Corporate Excellence",
+        "summary": "Koster Keunen Receives The 2024 Secretary of State's Award for Corporate Excellence...",
+        "date": null,
+        "source_url": "https://www.coatingsworld.com/contents/viewwebsite/148112"
+      },
+      {
+        "type": "News",
+        "title": "AkzoNobel to Unveil Latest Coatings Innovations, Color Trends at High Point Market 2025",
+        "summary": "Experts from AkzoNobel's Global Color and Design team will showcase the latest color trends and coating innovations at the Spring 2025 International Home Furnishings Market in High Point, NC. They will share their research on color and design influences driving the home furnishings sector in 2025, with a central focus on AkzoNobel's Color of the Year 2025, True Joy, a sunny yellow shade. Three distinctive color palettes inspired by themes of adventure, creativity, and identity will also be presented.",
+        "date": "2025-04-10",
+        "source_url": "https://www.coatingsworld.com/contents/view_breaking-news/2025-04-10/akzonobel-to-unveil-latest-coatings-innovations-color-trends-at-high-point-market-2025/"
+      }
+    ],
+    "Patents": [
+      {
+        "type": "Patents",
+        "title": "Nine Years Following the Great Recession: The State of the U.S. Paint and Coatings Industry",
+        "summary": "This article discusses the state of the U.S. paint and coatings industry nine years after the Great Recession. It analyzes the performance of the architectural, industrial OEM, and special purpose coatings segments, and provides an outlook for 2018 and beyond. The article also touches on market trends, challenges such as raw material prices, and the importance of innovation and strategic planning for future success.",
+        "date": "2018-08",
+        "source_url": "https://www.paint.org/coatingstech-magazine/articles/nine-years-following-great-recession-state-u-s-paint-coatings-industry/"
+      },
+      {
+        "type": "Patents",
+        "title": "The 2023 Top Companies Report",
+        "summary": "The 2023 Top Companies Report is a global ranking of the top manufacturers of paint and coatings. The rankings are based on annual sales in U.S. dollars, with 73 companies profiled that have sales of $100 million or more annually. The report notes a relatively quiet year for acquisitions in 2023, with the most notable being Sherwin-Williams' acquisition of Italian wood coatings manufacturer Industria Chimica Adriatica S.p.A. (ICA).",
+        "date": "2023-07-31",
+        "source_url": "https://www.coatingsworld.com/issues/2023-07-01/view_top-companies-report/top-companies-report-651116/"
+      },
+      {
+        "type": "Patents",
+        "title": "A Deeper Understanding of Protective Coatings Technology",
+        "summary": "AkzoNobel and the University of Manchester have partnered in a five-year research project to better understand coatings failure and to develop more sustainable protective coatings. This collaboration, which also includes the University of Sheffield and the University of Leeds, has focused on using AI and digital design to analyze powder coatings degradation, polymer-interface interactions, and to model new formulations based on extensive corrosion testing data.",
+        "date": "2025-01-22",
+        "source_url": "https://www.coatingsworld.com/issues/2025-01-01/view_europe-reports/latest-developments-in-the-uk-coatings-sector/"
+      },
+      {
+        "type": "Patents",
+        "title": "Coatings Today",
+        "summary": "Coatings Today is a publication of the American Coatings Association.",
+        "date": null,
+        "source_url": "https://www.paint.org/coatingstech-magazine/about_coatingstech/"
+      },
+      {
+        "type": "Patents",
+        "title": "JCTR: Patents of Coatings Technology & Research",
+        "summary": "JCTR: Patents of Coatings Technology & Research is a publication of the American Coatings Association.",
+        "date": null,
+        "source_url": "https://www.paint.org/coatingstech-magazine/about_coatingstech/"
+      },
+      {
+        "type": "Patents",
+        "title": "CoatingsTech Magazine",
+        "summary": "The only peer-reviewed trade magazine serving the coatings industry, CoatingsTech is published 6 times annually, in both print and digital format.",
+        "date": null,
+        "source_url": "https://www.paint.org/coatingstech-magazine/about_coatingstech/"
+      }
+    ],
+    "Conference": [
+      {
+        "type": "Conference",
+        "title": "Enabling extreme weatherability in protective coatings",
+        "summary": "This presentation by Geoff Webster from Eastman discusses novel polyester-based resins as a viable alternative to fluoropolymer technologies for protective coatings. It explores the benefits of TMCD-based polyesters, comparing their hydrolytic stability and photooxidation rates against FEVE resins. The research suggests that these new polyester resins demonstrate comparable, and in some cases superior, weatherability performance to the industry-standard fluoropolymers, which are often associated with high costs and PFAS content.",
+        "date": "2022",
+        "source_url": "https://www.pcimag.com/ext/resources/Events/CTT/2022ppt/Geoff_Webster_Eastman_CTT2022.pdf"
+      },
+      {
+        "type": "Conference",
+        "title": "Metropolitan New York Coatings Association Annual Meeting",
+        "summary": "The MNYCA Annual Meeting begins with a social cocktail hour at 6:00 pm.",
+        "date": "2024-05-15",
+        "source_url": "https://www.paint.org/event/metropolitan-new-york-coatings-association-annual-meeting/"
+      },
+      {
+        "type": "Conference",
+        "title": "Lonza",
+        "summary": "Lonza provides customers with high-performance preservation systems that comply with the evolving regulatory environment. Lonza continues to innovate, providing our customers with high-performance preservation systems that comply with the evolving regulatory environment. Proxel Spektra™ Preservative joins Proxel® BZ Plus and Proxel® LS Preservatives in our MIT-free product portfolio offering long-term, robust protection to preserve our customer's products and reputation.",
+        "date": "2018-03-07",
+        "source_url": "https://www.coatingsworld.com/live-from-shows/acs/2018-03-07/lonza-375609/"
+      },
+      {
+        "type": "Conference",
+        "title": "Coatings Trends & Technologies Summit",
+        "summary": "Coatings Trends & Technologies Summit",
+        "date": "2025-09-03",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "Conference",
+        "title": "Asia Pacific Coatings Show",
+        "summary": "Asia Pacific Coatings Show",
+        "date": "2025-09-03",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "Conference",
+        "title": "Women in Chemicals Conference 2025",
+        "summary": "Women in Chemicals Conference 2025",
+        "date": "2025-09-03",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "Conference",
+        "title": "NAPIM's 2025 Annual Convention/Technical Conference",
+        "summary": "NAPIM's 2025 Annual Convention/Technical Conference",
+        "date": "2025-09-08",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "Conference",
+        "title": "ABRAFATI SHOW",
+        "summary": "ABRAFATI SHOW",
+        "date": "2025-09-23",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "Conference",
+        "title": "Paint Bangladesh 2025",
+        "summary": "Paint Bangladesh 2025",
+        "date": "2025-09-25",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "Conference",
+        "title": "37th Biennial Western Coatings Symposium and Show",
+        "summary": "37th Biennial Western Coatings Symposium and Show",
+        "date": "2025-10-19",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "Conference",
+        "title": "Gulf Coatings Show",
+        "summary": "Gulf Coatings Show",
+        "date": "2025-10-20",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "Conference",
+        "title": "Pacific Coatings Show 2025",
+        "summary": "Pacific Coatings Show 2025",
+        "date": "2025-10-29",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "Conference",
+        "title": "CHINACOAT 2025",
+        "summary": "CHINACOAT 2025",
+        "date": "2025-11-25",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "Conference",
+        "title": "American Coatings Show & Conference 2026",
+        "summary": "American Coatings Show & Conference 2026",
+        "date": "2026-05-05",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "Conference",
+        "title": "SSCT 2026 Annual Technical Conference",
+        "summary": "SSCT 2026 Annual Technical Conference",
+        "date": "2026-06-07",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "Conference",
+        "title": "Coatings Science International Conference (CoSI 2024)",
+        "summary": "A conference for researchers and research managers in the field of Science and Technology of Coatings, providing a platform for exchanging the latest developments for polymer and paint chemists, surface and interface scientists, formulators, designers, and industry policy makers.",
+        "date": "2024-06-24",
+        "source_url": "https://www.paint.org/event/coatings-science-international-conference-cosi-2024/"
+      },
+      {
+        "type": "Conference",
+        "title": "SSCT Meeting & Conference Set for Charleston in April",
+        "summary": "The Southern Society for Coatings Technology (SSCT) will host its annual meeting and technology conference on April 14–17, 2019 at the Charleston Marriott, in Charleston, SC. Geared to the theme of “Trottin' Towards New Horizons,” the meeting will feature short courses, concurrent technical sessions, tabletop displays, and networking opportunities.",
+        "date": "2019-04-14",
+        "source_url": "https://www.paint.org/coatingstech-magazine/articles/ssct-meeting-conference-set-for-charleston-in-april/"
+      },
+      {
+        "type": "Conference",
+        "title": "ACA Member Webinar: The Status of TSCA Reform",
+        "summary": "ACA Member Webinar: The Status of TSCA Reform",
+        "date": "2025-07-17",
+        "source_url": "https://www.paint.org/coatingstech-magazine/about_coatingstech/"
+      },
+      {
+        "type": "Conference",
+        "title": "Coatings Trends & Technologies Summit",
+        "summary": "Coatings Trends & Technologies Summit",
+        "date": "2025-09-03",
+        "source_url": "https://www.paint.org/coatingstech-magazine/about_coatingstech/"
+      },
+      {
+        "type": "Conference",
+        "title": "Asia Pacific Coatings Show",
+        "summary": "Asia Pacific Coatings Show",
+        "date": "2025-09-03",
+        "source_url": "https://www.paint.org/coatingstech-magazine/about_coatingstech/"
+      },
+      {
+        "type": "Conference",
+        "title": "PCHI",
+        "summary": "February 19-21, 2025 Guangzhou, China",
+        "date": "2025-02-19",
+        "source_url": "https://www.coatingsworld.com/contents/viewwebsite/148112"
+      },
+      {
+        "type": "Conference",
+        "title": "In Cosmetics Global",
+        "summary": "April 8-10, 2025 Amsterdam",
+        "date": "2025-04-08",
+        "source_url": "https://www.coatingsworld.com/contents/viewwebsite/148112"
+      },
+      {
+        "type": "Conference",
+        "title": "NY SCC Suppliers Day",
+        "summary": "June 3-4, 2025 New York City",
+        "date": "2025-06-03",
+        "source_url": "https://www.coatingsworld.com/contents/viewwebsite/148112"
+      }
+    ],
+    "Legalnews": [
+      {
+        "type": "Legalnews",
+        "title": "CoatingsTech Direct",
+        "summary": "Offered twice monthly, the CoatingsTech Direct e-Legalnews brings the valuable content of the magazine to your inbox.",
+        "date": null,
+        "source_url": "https://www.paint.org/coatingstech-magazine/about_coatingstech/"
+      }
+    ],
+    "Other": [
+      {
+        "type": "Webinar",
+        "title": "ACA Member Webinar: The Status of TSCA Reform",
+        "summary": "ACA Member Webinar: The Status of TSCA Reform",
+        "date": "2025-07-17",
+        "source_url": "https://www.paint.org/events/"
+      },
+      {
+        "type": "Blog/Legalnews",
+        "title": "SynKos M-1063: Removing Microcrystalline Wax from the Equation",
+        "summary": "Manufacturers whose products depend on waxes for viscosity and structure have leaned on microcrystalline wax to meet the challenge. But what of the challenge to use fewer petrochemicals?",
+        "date": null,
+        "source_url": "https://www.coatingsworld.com/contents/viewwebsite/148112"
+      },
+      {
+        "type": "Blog/Legalnews",
+        "title": "Candles: Glowing with Elegance or Comforting Charm",
+        "summary": "If you were at the World Candle Congress in Orlando, FL, we hope you had a great time and learned something new and inspiring! If you didn't visit with us there, we're happy to share what we featured at the show. Koster Keunen has been in the business of wax for candles from our founding, and we have never stopped innovating.",
+        "date": null,
+        "source_url": "https://www.coatingsworld.com/contents/viewwebsite/148112"
+      },
+      {
+        "type": "Blog/Legalnews",
+        "title": "Oleogels: A Matrix for Carrying Pharmaceutical Actives",
+        "summary": "The pharmaceutical industry has a long history of using waxes for a wide variety of purposes. And while tablet coatings and balms remain strong in the market, oleogels are moving into the spotlight for versatility in form and function.",
+        "date": null,
+        "source_url": "https://www.coatingsworld.com/contents/viewwebsite/148112"
+      }
+    ]
+  },
+  "processed_urls": [
+    "https://www.coatingsworld.com/issues/2017-08-01/view_features/high-performance-pigments-834584/",
+    "https://www.paint.org/coatingstech-magazine/articles/architectural-coatings-a-qa-on-performance-and-sustainability/",
+    "https://www.coatingsworld.com/issues/2024-01-01/view_india_asia_pacific_reports/chinas-architectural-paint-coating-sector-tough-days-ahead/",
+    "https://www.coatingsworld.com/contents/view_breaking-news/2024-04-16/global-paints-and-coatings-market-analysis-and-outlook-2024-2032/",
+    "https://www.paint.org/coatingstech-magazine/articles/anti-scratch-additive-for-water-based-wood-coatings/",
+    "https://www.paint.org/coatingstech-magazine/articles/nine-years-following-great-recession-state-u-s-paint-coatings-industry/",
+    "https://www.pcimag.com/coatings-conference/agenda",
+    "https://www.pcimag.com/articles/111963-six-breakthrough-trends-reshaping-the-coatings-industry",
+    "https://www.coatingsworld.com/issues/2024-09-01/view_latin-america-reports/basf-boosts-architectural-market-exits-oem-auto-segment/",
+    "https://www.pcimag.com/articles/97893-additives-handbook",
+    "https://www.pcimag.com/articles/112430-thats-a-wrap-on-the-acs",
+    "https://www.pcimag.com/articles/85494-the-right-choice-uv-fluorescent-testing-or-xenon-arc-testing",
+    "https://www.pcimag.com/articles/107819-feve-powder-technology-for-weather--and-corrosion-resistant-coatings",
+    "https://www.pcimag.com/ext/resources/Events/CTT/2022ppt/Geoff_Webster_Eastman_CTT2022.pdf",
+    "https://www.coatingsworld.com/issues/2023-07-01/view_top-companies-report/top-companies-report-651116/",
+    "https://www.coatingsworld.com/issues/2025-01-01/view_europe-reports/latest-developments-in-the-uk-coatings-sector/",
+    "https://www.coatingsworld.com/contents/view_features/2024-07-23/industrial-coatings-market-121368/",
+    "https://www.coatingsworld.com/contents/view_online-exclusives/2025-03-19/ai-and-machine-learning-in-coatings-and-ink-formulation/",
+    "https://www.paint.org/aca-events/2024-awards-wrap/",
+    "https://www.pcimag.com/articles/109339-industrial-scratch-resistant-coatings-coming-to-a-diy-store-near-you",
+    "https://www.paint.org/event/coatings-science-international-conference-cosi-2024/",
+    "https://www.paint.org/events/",
+    "https://www.paint.org/event/metropolitan-new-york-coatings-association-annual-meeting/",
+    "https://www.paint.org/event/asia-pacific-coatings-show-2025/",
+    "https://www.coatingsworld.com/live-from-shows/acs/2024-05-01/scenes-from-the-2024-american-coatings-show/",
+    "https://www.coatingsworld.com/live-from-shows/acs/2018-03-07/lonza-375609/",
+    "https://www.paint.org/coatingstech-magazine/articles/ssct-meeting-conference-set-for-charleston-in-april/",
+    "https://www.paint.org/coatingstech-magazine/about_coatingstech/",
+    "https://www.coatingsworld.com/contents/viewwebsite/148112",
+    "https://www.coatingsworld.com/issues/2025-04-01/view_breaking-news/experts-unite-to-create-sustainable-future-for-polymers/",
+    "https://www.pcimag.com/",
+    "https://www.coatingsworld.com/",
+    "https://www.paint.org/newsroom/news/",
+    "https://www.pcimag.com/articles/112448-factmr-releases-titanium-dioxide-market-report-update",
+    "https://www.coatingsworld.com/contents/view_breaking-news/2025-04-10/akzonobel-to-unveil-latest-coatings-innovations-color-trends-at-high-point-market-2025/",
+    "https://www.coatingsworld.com/contents/view_breaking-news/2024-11-15/akzonobel-wood-coatings-launches-new-sustainability-campaign-in-north-america/"
+  ]
+}

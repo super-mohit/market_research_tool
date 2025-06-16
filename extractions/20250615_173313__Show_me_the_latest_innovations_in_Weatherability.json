@@ -1,0 +1,332 @@
+{
+  "metadata": {
+    "timestamp": "20250615_173313",
+    "original_query": "- Show me the latest innovations in Weatherability of Decorative Coatings.\n- What trends are emerging in the Sustainability of industrial coatings in 2025?\n- Find recent conferences or Patentss discussing Scuff-Resistance in coatings.\n\n1. Search tags/topics - Product, coating, architectural or similar.\n2. Datasources/URLs (https://www.paint.org/, https://www.coatingsworld.com/, https://www.pcimag.com/)",
+    "urls_processed": 24,
+    "total_items_extracted": 40,
+    "extraction_summary": {
+      "News": 21,
+      "Patents": 6,
+      "Conference": 4,
+      "Legalnews": 9,
+      "Other": 0
+    }
+  },
+  "extracted_data": {
+    "News": [
+      {
+        "type": "News",
+        "title": "Benjamin Moore Introduces Ultra Spec SCUFF-X – Industry's First Scuff-Resistant Paint",
+        "summary": "Benjamin Moore introduced Ultra Spec SCUFF-X – the first-of-its-kind, one-component interior latex paint engineered specifically to resist scuffmarks in high-traffic, commercial environments. SCUFF-X provides superior scuff-resistance to two-component coatings, without the strong odor, pre-mixing, short pot-life and application difficulties associated with similar products.",
+        "date": "2017-06-01",
+        "source_url": "https://www.coatingsworld.com/issues/2017-07-01/view_breaking-news/benjamin-moore-introduces-ultra-spec-scuff-x---industrys-first-scuff-resistant-paint/"
+      },
+      {
+        "type": "News",
+        "title": "HMG Paints Launches HydroPro Floor Paint",
+        "summary": "The UK's largest independent paintmaker, HMG Paints, has launched HydroPro Floor Paint, a water-based formulation with crosslinking technology. This product is designed for both interior and exterior floors in low-traffic areas, offering resistance to oils and greases with fast drying times that allow for multiple coats in a single day.",
+        "date": "2023-10-01",
+        "source_url": "https://www.coatingsworld.com/issues/2023-10-01/view_europe-reports/coatings-innovation-and-initiative-in-the-uk/"
+      },
+      {
+        "type": "News",
+        "title": "ROCOL Reformulates Easyline® Edge Aerosol Paint",
+        "summary": "Aerosol paint leader ROCOL has improved its Easyline® Edge line-marking paint by reformulating it to have double the solids content and a reduced touch-drying time of as little as eight minutes. Its epoxy base provides exceptional resistance to chemicals, minimizing disruption and downtime.",
+        "date": "2023-10-01",
+        "source_url": "https://www.coatingsworld.com/issues/2023-10-01/view_europe-reports/coatings-innovation-and-initiative-in-the-uk/"
+      },
+      {
+        "type": "News",
+        "title": "Crown Paints Pioneers Clean Air Formulation",
+        "summary": "Crown Paints has introduced a new Breatheasy® formulation called Crown Trade Clean ExtremeTM Clean Air® paint. This 99% solvent-free, scrubbable matt paint helps improve indoor air quality by absorbing and neutralizing residual formaldehyde from building materials. It is packaged in 100% recycled materials and has received BREEAM® and LEED accreditation.",
+        "date": "2023-10-01",
+        "source_url": "https://www.coatingsworld.com/issues/2023-10-01/view_europe-reports/coatings-innovation-and-initiative-in-the-uk/"
+      },
+      {
+        "type": "News",
+        "title": "BCF and PDA Launch Consumer Sustainability Initiative",
+        "summary": "The British Coatings Federation (BCF) and the Painting and Decorating Association (PDA) have collaborated to produce a video to educate consumers on sustainable painting practices. The initiative aims to help DIY users save time, money, and resources by demonstrating how to reduce paint and water waste.",
+        "date": "2023-10-01",
+        "source_url": "https://www.coatingsworld.com/issues/2023-10-01/view_europe-reports/coatings-innovation-and-initiative-in-the-uk/"
+      },
+      {
+        "type": "News",
+        "title": "BASF's iGloss Clearcoat oOffers Higher Gloss & Improved Scratch-resistance",
+        "summary": "BASF's iGloss Clearcoat offers higher gloss and improved scratch-resistance.",
+        "date": null,
+        "source_url": "https://www.coatingsworld.com/issues/2017-08-01/view_features/high-performance-pigments-834584/"
+      },
+      {
+        "type": "News",
+        "title": "Valspar's Fluropon Pure Now Featured In The Sustainable Minds Transparency Catalog",
+        "summary": "Valspar's Fluropon Pure is now featured in the Sustainable Minds Transparency Catalog.",
+        "date": null,
+        "source_url": "https://www.coatingsworld.com/issues/2017-08-01/view_features/high-performance-pigments-834584/"
+      },
+      {
+        "type": "News",
+        "title": "J.D. Power Ranks Valspar Exterior Paints Highest In J.D. Power Customer Satisfaction For 2017",
+        "summary": "J.D. Power ranks Valspar exterior paints highest in customer satisfaction for 2017.",
+        "date": null,
+        "source_url": "https://www.coatingsworld.com/issues/2017-08-01/view_features/high-performance-pigments-834584/"
+      },
+      {
+        "type": "News",
+        "title": "Sherwin-Williams Completes Acquisition of Valspar",
+        "summary": "Sherwin-Williams has completed its acquisition of Valspar.",
+        "date": null,
+        "source_url": "https://www.coatingsworld.com/issues/2017-08-01/view_features/high-performance-pigments-834584/"
+      },
+      {
+        "type": "News",
+        "title": "BASF Coatings Looks to Sell Coatings Business: Bloomberg News",
+        "summary": "BASF SE is reportedly exploring the sale of its coatings business, with an estimated valuation of €6 billion ($6.81 billion). According to a Bloomberg News report, the company has started reaching out to potential buyers. This move is part of BASF's broader strategy to unlock value from its standalone businesses. The potential sale follows the divestment of its Brazilian decorative paints business, Suvinil, to Sherwin-Williams.",
+        "date": "2025-06-13",
+        "source_url": "https://www.coatingsworld.com/contents/view_breaking-news/2025-06-13/basf-coatings-looks-to-sell-coatings-business-bloomberg-news/"
+      },
+      {
+        "type": "News",
+        "title": "Milan W. Krumbe Named GM, Sudarshan Europe B.V.",
+        "summary": "Milan W. Krumbe has been appointed as the General Manager of the industrial pigment business for Sudarshan Europe B.V. in Amsterdam. He is tasked with executing the growth strategies of the Indian pigment manufacturer to enhance and broaden its market presence in Europe. Krumbe has a background in the industry, with previous roles at Siegwerk, DuPont Performance Coatings, and Lanxess.",
+        "date": "2017-11-01",
+        "source_url": "https://www.coatingsworld.com/issues/2017-11-01/view_breaking-news/milan-w-krumbe-named-gm-sudarshan-europe-bv/"
+      },
+      {
+        "type": "News",
+        "title": "AkzoNobel to Acquire Chinese Decorative Paints Business from Sherwin-Williams",
+        "summary": "A'kzoNobel has reached an agreement with Sherwin-Williams to acquire its Chinese Decorative Paints business. The business has an annual revenue of about €100 million and employs around 300 people. The transaction includes the Huarun brand and is expected to be completed in the second half of 2023, subject to regulatory approvals. [1]",
+        "date": "2023-04-19",
+        "source_url": "https://www.coatingsworld.com/issues/2023-05-01/view_breaking-news/akzonobel-to-acquire-chinese-decorative-paints-business-from-sherwin-williams/"
+      },
+      {
+        "type": "News",
+        "title": "Michelin Announces Construction of an Industrial Demonstrator",
+        "summary": "Michelin has announced the construction of a new industrial demonstrator.",
+        "date": "2025-06-05",
+        "source_url": "https://www.paint.org/coatingstech-magazine/articles/global-trends-part-1-north-america/"
+      },
+      {
+        "type": "News",
+        "title": "ACCESS Rudolf Signs Agreement with ClearEdge Solutions",
+        "summary": "ACCESS Rudolf has signed a new agreement with ClearEdge Solutions.",
+        "date": "2025-06-05",
+        "source_url": "https://www.paint.org/coatingstech-magazine/articles/global-trends-part-1-north-america/"
+      },
+      {
+        "type": "News",
+        "title": "DELTA Coatings Breaks Ground on New Headquarters",
+        "summary": "DELTA Coatings has broken ground on its new headquarters.",
+        "date": "2025-06-05",
+        "source_url": "https://www.paint.org/coatingstech-magazine/articles/global-trends-part-1-north-america/"
+      },
+      {
+        "type": "News",
+        "title": "SCAQMD Public Hearing for Proposed Amendments to Solvent Cleaning Operations Rule Set for June 6",
+        "summary": "A public hearing by SCAQMD is scheduled for June 6 to discuss proposed amendments to the solvent cleaning operations rule.",
+        "date": "2025-05-12",
+        "source_url": "https://www.paint.org/coatingstech-magazine/articles/global-trends-part-1-north-america/"
+      },
+      {
+        "type": "News",
+        "title": "Statement of the American Coatings Association on Tariffs Imposed on Canada, Mexico and China",
+        "summary": "The American Coatings Association has released a statement regarding tariffs imposed on Canada, Mexico, and China.",
+        "date": "2025-03-04",
+        "source_url": "https://www.paint.org/coatingstech-magazine/articles/global-trends-part-1-north-america/"
+      },
+      {
+        "type": "News",
+        "title": "EPA Publishes Preliminary List of Companies Subject to TSCA Risk Evaluation Fees",
+        "summary": "The EPA has published a preliminary list of companies that will be subject to TSCA risk evaluation fees.",
+        "date": "2025-02-03",
+        "source_url": "https://www.paint.org/coatingstech-magazine/articles/global-trends-part-1-north-america/"
+      },
+      {
+        "type": "News",
+        "title": "David Fairhurst Presented with ACA's 2025 CoatingsTech Best Paper Award",
+        "summary": "David Fairhurst has been presented with the 2025 CoatingsTech Best Paper Award from the ACA.",
+        "date": "2025-04-29",
+        "source_url": "https://www.paint.org/coatingstech-magazine/articles/global-trends-part-1-north-america/"
+      },
+      {
+        "type": "News",
+        "title": "Follow ACA as it Celebrates the Inaugural World Paint and Coatings Week",
+        "summary": "The ACA is celebrating the first World Paint and Coatings Week.",
+        "date": "2025-03-17",
+        "source_url": "https://www.paint.org/coatingstech-magazine/articles/global-trends-part-1-north-america/"
+      },
+      {
+        "type": "News",
+        "title": "Dr. Lipiin Sung to Deliver Mattiello Memorial Lecture at ACA's 2025 CoatingsTech Conference",
+        "summary": "Dr. Lipiin Sung will deliver the Mattiello Memorial Lecture at the ACA's 2025 CoatingsTech Conference.",
+        "date": "2025-02-27",
+        "source_url": "https://www.paint.org/coatingstech-magazine/articles/global-trends-part-1-north-america/"
+      }
+    ],
+    "Patents": [
+      {
+        "type": "Patents",
+        "title": "The Automotive Coatings Market",
+        "summary": "Coatings leaders report that 2024 was a solid year, and are developing innovative new technologies to meet the needs of the automotive industry. The coatings on a car, truck or motorcycle do much more than provide color; they also protect the vehicle from corrosion and chemicals, and functional coatings are being developed to provide even more benefits. [1]",
+        "date": "2025-02-26",
+        "source_url": "https://www.coatingsworld.com/issues/2025-03-01/view_features/the-automotive-coatings-market/"
+      },
+      {
+        "type": "Patents",
+        "title": "Exterior Decorative Coatings Market",
+        "summary": "The architectural or decorative coatings market, the largest segment of the global coatings industry, is projected to have a bright future. A report from The Chemquest Group shows the market grew in value and volume from 2010-2015, with continued growth predicted through 2020. Key industry players like Benjamin Moore and PPG are optimistic, citing consumer confidence and growth in new construction and remodeling. The article also touches on color trends, such as the popularity of black and dark hues, and the ongoing shift towards low-VOC and 'green' coatings. The market is also influenced by regional economic growth, with the Asia-Pacific region expected to see significant construction increases. The piece also details market segmentation, including the roles of professional contractors, DIY consumers, and distribution channels.",
+        "date": "2017-11-06",
+        "source_url": "https://www.coatingsworld.com/issues/2017-11-01/view_features/exterior-decorative-coatings-market/"
+      },
+      {
+        "type": "Patents",
+        "title": "2019 Interior Architectural Coatings Trends",
+        "summary": "Paint manufacturers are helping new homebuyers – many of them millennials – pick the right colors for their new abode. According to the National Realtors Association's “Home Buyer and Seller Generational Trends Report,” individuals under 38 make up the largest share of home buyers. This trend, along with an increased demand for home updates and remodeling, is driving the interior coatings market.",
+        "date": "2019-01-07",
+        "source_url": "https://www.coatingsworld.com/issues/2019-01-01/view_features/2019-interior-architectural-coatings-trends/"
+      },
+      {
+        "type": "Patents",
+        "title": "High Performance Pigments",
+        "summary": "The global demand for high performance pigments is steadily increasing, and experts predict that this will continue through at least 2022. The need for specialty pigments in the automotive sector is fueling growth in this market.",
+        "date": "2017-08-09",
+        "source_url": "https://www.coatingsworld.com/issues/2017-08-01/view_features/high-performance-pigments-834584/"
+      },
+      {
+        "type": "Patents",
+        "title": "Liquid, Sprayable, “Zero” VOC Coatings Utilizing Cycloaliphatic Epoxies",
+        "date": "1996-09",
+        "summary": "This article discusses the use of low viscosity cycloaliphatic epoxies in thermally cured coatings. These epoxies differ from conventional ones in several ways, including their aliphatic backbone and high reactivity with acids. While their use in UV coatings is well-documented, their application in thermally cured coatings is less so. The article explores how formulating knowledge from UV cationic coatings can be applied to thermally cured systems, with some differences, such as the tolerance for higher application viscosities in non-sprayed UV coatings. The addition of caprolactone polyols is shown to be effective in both solvent-based and UV-cured coatings, and in thermally cured coatings, water can be used as a zero VOC diluent.",
+        "source_url": "https://www.paint.org/wp-content/uploads/2021/09/SEPT96_Zero-VOC-Coatings-Utilizing-Cycloaliphatic-Epoxies.pdf"
+      },
+      {
+        "type": "Patents",
+        "title": "Global Trends, Part 1: NORTH AMERICA",
+        "summary": "The article discusses the major trends affecting the North American coatings industry, focusing on environmental sustainability, health awareness, mobility, and digitalization. It highlights the growing importance of bio-based materials and molecular recycling in creating sustainable products.",
+        "date": null,
+        "source_url": "https://www.paint.org/coatingstech-magazine/articles/global-trends-part-1-north-america/"
+      }
+    ],
+    "Conference": [
+      {
+        "type": "Conference",
+        "title": "Andrea Wagner Watts to Keynote 2025 CoatingsTech Conference",
+        "summary": "The American Coatings Association (ACA) has announced that Andrea Wagner Watts, building science education manager at GAF, will deliver the keynote address at the 2025 CoatingsTech Conference. The conference is scheduled for April 28-30 in Pittsburgh, Pa. Her keynote, titled 'Future-proofing Buildings: Pushing the Envelope Toward a More Resilient Future,' aligns with the conference's theme of 'Coatings and Technologies for a Resilient Future.'",
+        "date": "2024-11-20",
+        "source_url": "https://www.paint.org/coatingstech-conference-2025-keynote/"
+      },
+      {
+        "type": "Conference",
+        "title": "Great Lakes Coating Conference",
+        "summary": "An upcoming conference focused on coatings in the Great Lakes region.",
+        "date": "2025-06-10",
+        "source_url": "https://www.paint.org/coatingstech-magazine/articles/global-trends-part-1-north-america/"
+      },
+      {
+        "type": "Conference",
+        "title": "ACA Member Webinar: The Status of TSCA Reform",
+        "summary": "A webinar for ACA members on the current status of TSCA reform.",
+        "date": "2025-07-17",
+        "source_url": "https://www.paint.org/coatingstech-magazine/articles/global-trends-part-1-north-america/"
+      },
+      {
+        "type": "Conference",
+        "title": "Coatings Trends & Technologies Summit",
+        "summary": "A summit dedicated to the latest trends and technologies in the coatings industry.",
+        "date": "2025-09-03",
+        "source_url": "https://www.paint.org/coatingstech-magazine/articles/global-trends-part-1-north-america/"
+      }
+    ],
+    "Legalnews": [
+      {
+        "type": "Legalnews",
+        "title": "Michelin Announces Construction of an Industrial Demonstrator",
+        "summary": "Summary not available on the page.",
+        "date": "2025-06-05",
+        "source_url": "https://www.paint.org/programs-publications/publications/coatings-today/"
+      },
+      {
+        "type": "Legalnews",
+        "title": "ACCESS Rudolf Signs Agreement with ClearEdge Solutions",
+        "summary": "Summary not available on the page.",
+        "date": "2025-06-05",
+        "source_url": "https://www.paint.org/programs-publications/publications/coatings-today/"
+      },
+      {
+        "type": "Legalnews",
+        "title": "DELTA Coatings Breaks Ground on New Headquarters",
+        "summary": "Summary not available on the page.",
+        "date": "2025-06-05",
+        "source_url": "https://www.paint.org/programs-publications/publications/coatings-today/"
+      },
+      {
+        "type": "Legalnews",
+        "title": "SCAQMD Public Hearing for Proposed Amendments to Solvent Cleaning Operations Rule Set for June 6",
+        "summary": "Summary not available on the page.",
+        "date": "2025-05-12",
+        "source_url": "https://www.paint.org/programs-publications/publications/coatings-today/"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Statement of the American Coatings Association on Tariffs Imposed on Canada, Mexico and China",
+        "summary": "Summary not available on the page.",
+        "date": "2025-03-04",
+        "source_url": "https://www.paint.org/programs-publications/publications/coatings-today/"
+      },
+      {
+        "type": "Legalnews",
+        "title": "EPA Publishes Preliminary List of Companies Subject to TSCA Risk Evaluation Fees",
+        "summary": "Summary not available on the page.",
+        "date": "2025-02-03",
+        "source_url": "https://www.paint.org/programs-publications/publications/coatings-today/"
+      },
+      {
+        "type": "Legalnews",
+        "title": "David Fairhurst Presented with ACA's 2025 CoatingsTech Best Paper Award",
+        "summary": "Summary not available on the page.",
+        "date": "2025-04-29",
+        "source_url": "https://www.paint.org/programs-publications/publications/coatings-today/"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Follow ACA as it Celebrates the Inaugural World Paint and Coatings Week",
+        "summary": "Summary not available on the page.",
+        "date": "2025-03-17",
+        "source_url": "https://www.paint.org/programs-publications/publications/coatings-today/"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Dr. Lipiin Sung to Deliver Mattiello Memorial Lecture at ACA's 2025 CoatingsTech Conference",
+        "summary": "Summary not available on the page.",
+        "date": "2025-02-27",
+        "source_url": "https://www.paint.org/programs-publications/publications/coatings-today/"
+      }
+    ],
+    "Other": []
+  },
+  "processed_urls": [
+    "https://www.coatingsworld.com/issues/2025-03-01/view_features/the-automotive-coatings-market/",
+    "https://www.coatingsworld.com/contents/list_webinars/",
+    "https://www.coatingsworld.com/issues/2017-07-01/view_breaking-news/benjamin-moore-introduces-ultra-spec-scuff-x---industrys-first-scuff-resistant-paint/",
+    "https://www.pcimag.com/coatings-conference/agenda",
+    "https://www.coatingsworld.com/issues/2017-08-01/view_features/high-performance-pigments-834584/",
+    "https://www.paint.org/",
+    "https://www.coatingsworld.com/issues/2017-11-01/view_features/exterior-decorative-coatings-market/",
+    "https://www.pcimag.com/articles/112262-development-of-more-sustainable-water-based-dtm-coatings",
+    "https://www.coatingsworld.com/contents/view_breaking-news/2024-09-24/dutch-boy-paints-introduces-new-and-improved-platinum-plus/",
+    "https://www.coatingsworld.com/issues/2023-10-01/view_europe-reports/coatings-innovation-and-initiative-in-the-uk/",
+    "https://www.coatingsworld.com/issues/2019-01-01/view_features/2019-interior-architectural-coatings-trends/",
+    "https://www.pcimag.com/articles/113556-how-graphene-enhanced-coatings-are-driving-sustainable-innovation",
+    "https://www.paint.org/aca-events/2025-coatingstech-conference-highlights/",
+    "https://www.paint.org/wp-content/uploads/2021/09/SEPT96_Zero-VOC-Coatings-Utilizing-Cycloaliphatic-Epoxies.pdf",
+    "https://www.pcimag.com/coatings-conference/agenda",
+    "https://www.paint.org/coatingstech-conference-2025-keynote/",
+    "https://www.paint.org/wp-content/uploads/2021/09/jctJAN02-Nichols.pdf",
+    "https://www.coatingsworld.com/contents/view_breaking-news/2017-07-20/basfs-igloss-clearcoat-ooffers-higher-gloss-improved-scratch-resistance/",
+    "https://www.paint.org/programs-publications/publications/coatings-today/",
+    "https://www.pcimag.com/articles/113556-how-graphene-enhanced-coatings-are-driving-sustainable-innovation",
+    "https://www.coatingsworld.com/issues/2023-05-01/view_breaking-news/akzonobel-to-acquire-chinese-decorative-paints-business-from-sherwin-williams/",
+    "https://www.coatingsworld.com/contents/view_breaking-news/2025-06-13/basf-coatings-looks-to-sell-coatings-business-bloomberg-news/",
+    "https://www.coatingsworld.com/issues/2017-11-01/view_breaking-news/milan-w-krumbe-named-gm-sudarshan-europe-bv/",
+    "https://www.paint.org/coatingstech-magazine/articles/global-trends-part-1-north-america/"
+  ]
+}

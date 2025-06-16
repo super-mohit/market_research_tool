@@ -1,0 +1,15 @@
+# Environment
+.env
+venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Database files
+*.db
+*.db-journal*
+
+# Python caches
+__pycache__/
+database/__pycache__/

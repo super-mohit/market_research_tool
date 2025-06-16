@@ -1,0 +1,503 @@
+{
+  "metadata": {
+    "timestamp": "20250615_174555",
+    "original_query": "- Show me the latest innovations in Weatherability of Decorative Coatings.\n- What trends are emerging in the Sustainability of industrial coatings in 2025?\n- Find recent conferences or Patentss discussing Scuff-Resistance in coatings.\n\n1. Search tags/topics - Product, coating, architectural or similar.\n2. Datasources/URLs (https://www.paint.org/, https://www.coatingsworld.com/, https://www.pcimag.com/)",
+    "urls_processed": 20,
+    "total_items_extracted": 65,
+    "extraction_summary": {
+      "News": 2,
+      "Patents": 19,
+      "Conference": 18,
+      "Legalnews": 26,
+      "Other": 0
+    }
+  },
+  "extracted_data": {
+    "News": [
+      {
+        "type": "News",
+        "title": "ABRAFATI 2017: COATEX and ACR Reveals its Latest Developments",
+        "summary": "Coatex Latam Sales and Technical teams have selected topics of interest to be introduced to the market and welcome attendees at the Arkema booth #8 for technical discussions and exchanges. Continuously innovating and developing new additives to fulfill even more demanding constraints and requirements, Coatex shares its new technical findings.",
+        "date": "2017-10-05",
+        "source_url": "https://www.coatingsworld.com/contents/view_breaking-news/2017-10-05/abrafati-2017-coatex-and-acr-reveals-its-latest-developments/"
+      },
+      {
+        "type": "News",
+        "title": "Sherwin-Williams Protective & Marine Launches FIRETEX M90/03",
+        "summary": "Passive fire protection for onshore assets mitigates hydrocarbon pool fire and corrosion risks. Sherwin-Williams Protective & Marine expanded its line of FIRETEX passive fire protection coatings with a solution that optimizes applications and reduces costs by enabling precise coating thickness specifications for onshore assets.",
+        "date": "2020-07-14",
+        "source_url": "https://www.coatingsworld.com/issues/2020-08-01/view_breaking-news/sherwin-williams-protective-marine-launches-firetex-m9003/"
+      }
+    ],
+    "Patents": [
+      {
+        "type": "Patents",
+        "title": "Renovations, DIY Drive Growth In Architectural Coatings Market",
+        "summary": "Leading coatings manufacturers are observing increased interest in DIY projects and home renovations, which are becoming the primary drivers of growth in the architectural coatings market, as opposed to new construction. The article discusses the resilience of the market, influenced by housing trends and consumer interest in home improvement. Key industry players and experts highlight sustainability, low-VOC products, and color trends as significant factors for 2025, with an overall expectation of modest growth in the upcoming year. [1]",
+        "date": "2025-01-28",
+        "source_url": "https://www.coatingsworld.com/issues/2025-01-01/view_features/renovations-diy-drive-growth-in-architectural-coatings-market/"
+      },
+      {
+        "type": "Patents",
+        "title": "Latest Developments in the UK Coatings Sector",
+        "summary": "The article discusses recent advancements and activities within the UK coatings industry, with a strong emphasis on sustainability and environmental performance. Key highlights include a research partnership between AkzoNobel and the University of Manchester using AI to develop more durable and sustainable coatings. The piece also covers the British Coatings Federation's (BCF) 'Coatings Care' report, noting significant improvements in health, safety, and environmental (HSE) metrics, such as record-low energy use per tonne of production and a majority of sites reporting zero landfill waste. Lastly, it mentions the announcement of 'Crocky Road' as the 2025 Color of the Year by UK-based Earthborn Paints.",
+        "date": "2025-01-22",
+        "source_url": "https://www.coatingsworld.com/issues/2025-01-01/view_europe-reports/latest-developments-in-the-uk-coatings-sector/"
+      },
+      {
+        "type": "Patents",
+        "title": "Growth and Use of Radiation-Curing Technology in China",
+        "summary": "This article, from October 2005, details the expansion of radiation-curing technology in China, corresponding with the country's economic growth. It reviews data from 109 companies, including raw material producers, UV product manufacturers, and equipment suppliers, noting significant growth rates in production value and output. The paper also touches upon research advancements, such as the development of hyperbranched oligomers and UV-curable powder coatings, and discusses market trends and future potential, particularly in light of events like the 2008 Summer Olympics.",
+        "date": "2005-10-01",
+        "source_url": "https://www.paint.org/ct-archive/growth-and-use-of-radiation-curing-technology-in-china/"
+      },
+      {
+        "type": "Patents",
+        "title": "Industrial Coatings, Resin Developments, Sustainability",
+        "summary": "Monthly focus for the PCI eMagazine, Website, and Social Media channels.",
+        "date": "2025-01",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Patents",
+        "title": "Print Showcase Issue",
+        "summary": "Special issue distributed at industry events throughout the year.",
+        "date": "",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Patents",
+        "title": "Coatings Supplier Handbook",
+        "summary": "Special issue with a second deployment in August.",
+        "date": "",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Patents",
+        "title": "Waterborne Technology, Additives, Equipment",
+        "summary": "Monthly focus for the PCI eMagazine, Website, and Social Media channels.",
+        "date": "2025-02",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Patents",
+        "title": "PFAS Replacements, Architectural Coatings, Pigment Technology",
+        "summary": "Monthly focus for the PCI eMagazine, Website, and Social Media channels.",
+        "date": "2025-03",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Patents",
+        "title": "Special Purpose Coatings, Low-VOC Technology, Resins",
+        "summary": "Monthly focus for the PCI eMagazine, Website, and Social Media channels.",
+        "date": "2025-04",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Patents",
+        "title": "Additives, Bio-Based Technology, Automotive Coatings",
+        "summary": "Monthly focus for the PCI eMagazine, Website, and Social Media channels.",
+        "date": "2025-05",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Patents",
+        "title": "Architectural Coatings, Pigments/Colorants, Equipment",
+        "summary": "Monthly focus for the PCI eMagazine, Website, and Social Media channels.",
+        "date": "2025-06",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Patents",
+        "title": "Voices From the Top, and the Global Top 10 and PCI 25 rankings",
+        "summary": "Monthly focus for the PCI eMagazine, Website, and Social Media channels.",
+        "date": "2025-07",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Patents",
+        "title": "Voices from the Top eBook",
+        "summary": "Special issue with a second deployment in September.",
+        "date": "",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Patents",
+        "title": "Industrial Coatings, Binders, Sustainability",
+        "summary": "Monthly focus for the PCI eMagazine, Website, and Social Media channels.",
+        "date": "2025-08",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Patents",
+        "title": "Additive Advancements, Pigments/Colorants, Wood Coatings",
+        "summary": "Monthly focus for the PCI eMagazine, Website, and Social Media channels.",
+        "date": "2025-09",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Patents",
+        "title": "Chemical Distribution, Powder Coatings, Equipment",
+        "summary": "Monthly focus for the PCI eMagazine, Website, and Social Media channels.",
+        "date": "2025-10",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Patents",
+        "title": "Emerging Technology, Bio-Based Coatings, DTM Coatings",
+        "summary": "Monthly focus for the PCI eMagazine, Website, and Social Media channels.",
+        "date": "2025-11",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Patents",
+        "title": "CASE eBook",
+        "summary": "Special issue with a second deployment in Feb. 2026.",
+        "date": "",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Patents",
+        "title": "Architectural Coatings, Mass Balance Approach, UV/EB Technology",
+        "summary": "Monthly focus for the PCI eMagazine, Website, and Social Media channels.",
+        "date": "2025-12",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      }
+    ],
+    "Conference": [
+      {
+        "type": "Conference",
+        "title": "American Coatings CONFERENCE: Recognizing Industry Innovations",
+        "summary": "The 2016 American Coatings CONFERENCE, held from April 11–13, provided a platform for educational opportunities with 96 technical presentations under the theme “Designing Innovation Strategies for the Future.” The event featured pre-conference tutorials, a plenary session with a keynote by Dr. Sharon Feng, and the presentation of several awards. The Roon Foundation Awards recognized top technical papers, with first place going to a team from North Dakota State University. The American Coatings AWARD for the most impactful paper was presented to Dow Chemical for their work on “Near-Zero VOC Waterborne Alkyd Dispersions with Solventborne Alkyd Performance.” The conference also included the Mattiello Memorial Lecture delivered by Donald C. Sundberg and a poster session for researchers to display their work.",
+        "date": "2016-04-13",
+        "source_url": "https://www.paint.org/coatingstech-magazine/articles/american-coatings-conference-recognizing-industry-innovations/"
+      },
+      {
+        "type": "Conference",
+        "title": "2023 CoatingsTech Conference Highlights",
+        "summary": "A summary of the ACA's 2023 CoatingsTech Conference, which took place in Cleveland, Ohio, from June 26-28. The theme was “Coatings Technologies: Adaptation in a Complex World,” and the event included specialized lectures, technical sessions, and networking opportunities.",
+        "date": "2023-06-28",
+        "source_url": "https://www.paint.org/aca-events/ctc-2023-highlights/"
+      },
+      {
+        "type": "Conference",
+        "title": "Keynote Address: Developing Coatings for a More Sustainable Future",
+        "summary": "Dr. John A. Gilbert, Chief Research and Development Officer at Behr Process Corporation, delivered the keynote address. He discussed recent advances in coatings formulation that provide sustainable choices for the end user, including advanced waterborne formulations and lower carbon footprint strategies.",
+        "date": "2023-06-28",
+        "source_url": "https://www.paint.org/aca-events/ctc-2023-highlights/"
+      },
+      {
+        "type": "Conference",
+        "title": "Mattiello Award Lecture: Visualizing How Coatings 'Fail' – Service Life Viewed through the Lenses of Coatings Science",
+        "summary": "Dr. Kurt Wood, retired senior principal scientist at Arkema, Inc., delivered the Mattiello Award Lecture. His lecture focused on using simple chemical, physical, and mechanical models to understand the essential elements of coating systems and identify ways to extend their service life.",
+        "date": "2023-06-28",
+        "source_url": "https://www.paint.org/aca-events/ctc-2023-highlights/"
+      },
+      {
+        "type": "Conference",
+        "title": "CoatingsTech Best Paper Award: Thermally, UV, and Moisture Curable Novel Family of Versatile Oligomers",
+        "summary": "Tahereh (Neda) Hayeri, a Ph.D. candidate at Eastern Michigan University, received the Best Paper Award for her research on a new family of oligomers that can be cured by multiple methods (thermal, UV, and moisture). This innovation addresses challenges in conventional UV-cure systems.",
+        "date": "2023-06-28",
+        "source_url": "https://www.paint.org/aca-events/ctc-2023-highlights/"
+      },
+      {
+        "type": "Conference",
+        "title": "Inaugural David F. Darling Prize",
+        "summary": "The first-ever David F. Darling Prize was awarded to Dr. Dane R. Jones for his contributions to sustainability and environmental stewardship in coatings science. His work includes inventing new VOC analysis methods and developing ASTM standards for architectural coatings.",
+        "date": "2023-06-28",
+        "source_url": "https://www.paint.org/aca-events/ctc-2023-highlights/"
+      },
+      {
+        "type": "Conference",
+        "title": "The Coatings Summit",
+        "summary": "Industry conference.",
+        "date": "2025-01",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Conference",
+        "title": "Coatings and Adhesives for Electric Vehicles",
+        "summary": "An editorial webinar.",
+        "date": "2025-01",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Conference",
+        "title": "The Waterborne Symposium",
+        "summary": "Industry conference.",
+        "date": "2025-02",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Conference",
+        "title": "European Coatings Show",
+        "summary": "Industry conference.",
+        "date": "2025-03",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Conference",
+        "title": "Coatings Tech Conference",
+        "summary": "Industry conference.",
+        "date": "2025-04",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Conference",
+        "title": "SSCT Annual Meeting",
+        "summary": "Industry conference.",
+        "date": "2025-05",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Conference",
+        "title": "Eastern Coatings Show",
+        "summary": "Industry conference.",
+        "date": "2025-05",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Conference",
+        "title": "RadTech 2025",
+        "summary": "Industry conference.",
+        "date": "2025-05",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Conference",
+        "title": "Great Lakes Coatings Conference",
+        "summary": "Industry conference.",
+        "date": "2025-06",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Conference",
+        "title": "Paint Film Technology",
+        "summary": "An editorial webinar.",
+        "date": "2025-07",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Conference",
+        "title": "Coatings Trends & Technologies Summit",
+        "summary": "Industry conference.",
+        "date": "2025-09",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Conference",
+        "title": "Western Coatings Show",
+        "summary": "Industry conference.",
+        "date": "2025-10",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      }
+    ],
+    "Legalnews": [
+      {
+        "type": "Legalnews",
+        "title": "Digitalization and AI",
+        "summary": "Monthly topic for the PCInnovations Legalnews.",
+        "date": "2025-01",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Materials of Concern",
+        "summary": "Topic for the Coat It! Podcast.",
+        "date": "2025-01",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Resin Technology",
+        "summary": "Monthly topic for the PCInnovations Legalnews.",
+        "date": "2025-02",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Technology for Marine Coatings",
+        "summary": "Topic for the Coat It! Podcast.",
+        "date": "2025-02",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Industrial Coatings",
+        "summary": "Monthly topic for the PCInnovations Legalnews.",
+        "date": "2025-03",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Digitalization/AI",
+        "summary": "Topic for the Coat It! Podcast.",
+        "date": "2025-03",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Additives",
+        "summary": "Monthly topic for the PCInnovations Legalnews.",
+        "date": "2025-04",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Advances in Finishing",
+        "summary": "Topic for the Coat It! Podcast.",
+        "date": "2025-04",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Low-VOC Coatings",
+        "summary": "Monthly topic for the PCInnovations Legalnews.",
+        "date": "2025-05",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Coating Film Technology",
+        "summary": "Topic for the Coat It! Podcast.",
+        "date": "2025-05",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "UV/EB Technology",
+        "summary": "Monthly topic for the PCInnovations Legalnews.",
+        "date": "2025-06",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Spring Show Wrap Up",
+        "summary": "Topic for the Coat It! Podcast.",
+        "date": "2025-06",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Equipment",
+        "summary": "Monthly topic for the PCInnovations Legalnews.",
+        "date": "2025-07",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Global Top 10/ PCI 25 Insights",
+        "summary": "Topic for the Coat It! Podcast.",
+        "date": "2025-07",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Corrosion Control",
+        "summary": "Monthly topic for the PCInnovations Legalnews.",
+        "date": "2025-08",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Regulatory Update",
+        "summary": "Topic for the Coat It! Podcast.",
+        "date": "2025-08",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Special Purpose Coatings",
+        "summary": "Monthly topic for the PCInnovations Legalnews.",
+        "date": "2025-09",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "The TiO2 Market",
+        "summary": "Topic for the Coat It! Podcast.",
+        "date": "2025-09",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Sustainability",
+        "summary": "Monthly topic for the PCInnovations Legalnews.",
+        "date": "2025-10",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Color Trends",
+        "summary": "Topic for the Coat It! Podcast.",
+        "date": "2025-10",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Additives",
+        "summary": "Monthly topic for the PCInnovations Legalnews.",
+        "date": "2025-11",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Fall Show Wrap Up",
+        "summary": "Topic for the Coat It! Podcast.",
+        "date": "2025-11",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Pigments/Colorants",
+        "summary": "Monthly topic for the PCInnovations Legalnews.",
+        "date": "2025-12",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Mergers and Acquisitions",
+        "summary": "Topic for the Coat It! Podcast.",
+        "date": "2025-12",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Insider News",
+        "summary": "Weekly Legalnews with typical topics including industry news, market reports, company news, new technologies, and featured columns and articles.",
+        "date": "",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      },
+      {
+        "type": "Legalnews",
+        "title": "Finishing Today",
+        "summary": "Monthly Legalnews with typical topics including pretreatment, abrasive blasting, refinishing, coatings case histories, paint processes, surface finishing, color trends, DIY and contractor news, etc.",
+        "date": "",
+        "source_url": "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf"
+      }
+    ],
+    "Other": []
+  },
+  "processed_urls": [
+    "https://www.pcimag.com/articles/91513-nanoparticle-additives-for-enhanced-scratch-resistance-in-uv-cured-coatings",
+    "https://www.coatingsworld.com/issues/2023-10-01/view_europe-reports/coatings-innovation-and-initiative-in-the-uk/",
+    "https://www.pcimag.com/publications/3/editions/1439",
+    "https://www.pcimag.com/publications/3/editions/1440",
+    "https://www.coatingsworld.com/issues/2025-01-01/view_features/renovations-diy-drive-growth-in-architectural-coatings-market/",
+    "https://www.coatingsworld.com/issues/2025-01-01/view_europe-reports/latest-developments-in-the-uk-coatings-sector/",
+    "https://www.pcimag.com/articles/103613-scruff-resistant-paint",
+    "https://www.coatingsworld.com/contents/view_breaking-news/2017-10-05/abrafati-2017-coatex-and-acr-reveals-its-latest-developments/",
+    "https://www.pcimag.com/articles/97442-sub-micron-alumina-dispersion-additives-improve-opv-wear-protection",
+    "https://www.pcimag.com/articles/106937-spectroscopic-analysis-of-architectural-coatings-for-improved-weathering",
+    "https://www.paint.org/coatingstech-magazine/articles/american-coatings-conference-recognizing-industry-innovations/",
+    "https://www.paint.org/aca-events/2025-ctc/",
+    "https://www.paint.org/aca-events/ctc-2023-highlights/",
+    "https://www.pcimag.com/articles/109902-bcf-addresses-greenwash-claims-in-decorative-coatings",
+    "https://www.pcimag.com/products/593-increasing-the-durability-of-paint-and-varnish-coatings-in-building-products-and-construction-1st-edition",
+    "https://www.pcimag.com/",
+    "https://www.coatingsworld.com/issues/2020-08-01/view_breaking-news/sherwin-williams-protective-marine-launches-firetex-m9003/",
+    "https://www.pcimag.com/ext/resources/images/media-kit/PCI-Editorial-Calendar-2025.pdf",
+    "https://www.paint.org/ct-archive/growth-and-use-of-radiation-curing-technology-in-china/",
+    "https://www.coatingsworld.com/breaking-news/Paint-and-Coatings-Manufacturer-News/"
+  ]
+}

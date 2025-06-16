@@ -1,0 +1,150 @@
+# src/main.py (Refactored)
+import json
+import asyncio
+import time
+from concurrent.futures import ThreadPoolExecutor
+import os # Make sure os is imported
+
+# Keep all your existing phase imports
+from src.phase1_planner import generate_search_queries
+from src.phase2_searcher import execute_cse_searches
+from src.phase3_intermediate_synthesizer import synthesize_all_intermediate_reports
+from src.phase5_final_synthesizer import synthesize_final_report
+from src.phase4_extractor import run_structured_extraction
+from src.constants import MAX_SEARCH_WORKERS, MAX_GENERAL_FOR_REPORT, MAX_PER_BUCKET_EXTRACT
+from src.config import assert_all_env
+
+# Configuration: adjust parallelism limits
+MAX_BATCH_WORKERS = 6
+
+async def execute_research_pipeline(user_query: str) -> dict:
+    """
+    Orchestrates the market research pipeline and returns a structured result.
+    This is the core logic called by the API background task.
+    """
+    assert_all_env()
+    start_time = time.perf_counter()
+    print(f"--- Starting Pipeline for query: '{user_query[:50]}...' ---")
+
+    # Phase 1: Generate search queries
+    search_queries = generate_search_queries(user_query)
+    if not search_queries:
+        raise ValueError("Pipeline Error: No search queries were generated.")
+    total_queries = sum(len(queries) for queries in search_queries.values())
+    print(f"-> Phase 1 Complete: {total_queries} queries generated across {len(search_queries)} buckets.")
+
+    # Phase 2: Execute CSE searches
+    loop = asyncio.get_running_loop()
+    tagged_urls = await loop.run_in_executor(
+        ThreadPoolExecutor(MAX_SEARCH_WORKERS),
+        execute_cse_searches,
+        search_queries
+    )
+    if not tagged_urls:
+        raise ValueError("Pipeline Error: No URLs were collected from search.")
+    
+    print(f"-> Phase 2 Complete: {len(tagged_urls)} URLs collected across buckets.")
+
+    # 2-a: Collect bucketed URLs once
+    # tagged_urls is List[Tuple[url, bucket]]
+    bucketed: dict[str, list[str]] = {}
+    for url, bucket in tagged_urls:
+        bucketed.setdefault(bucket, []).append(url)
+
+    general_urls = bucketed.get("General", [])[:MAX_GENERAL_FOR_REPORT]   # 30 max
+    news_urls = bucketed.get("News", [])[:MAX_PER_BUCKET_EXTRACT]
+    Patents_urls = bucketed.get("Patents", [])[:MAX_PER_BUCKET_EXTRACT]
+    conf_urls = bucketed.get("Conference", [])[:MAX_PER_BUCKET_EXTRACT]
+    Legalnews_urls = bucketed.get("Legalnews", [])[:MAX_PER_BUCKET_EXTRACT]
+
+    # --- 1️⃣ URL set for the *intermediate & final* report
+    report_urls = general_urls
+
+    # --- 2️⃣ URL set for the *structured extractor*
+    extract_urls = news_urls + Patents_urls + conf_urls + Legalnews_urls
+
+    # fast look-up for guessed types (only what we pass to extractor)
+    url2tag = {u: "News" for u in news_urls} | \
+              {u: "Patents" for u in Patents_urls} | \
+              {u: "Conference" for u in conf_urls} | \
+              {u: "Legalnews" for u in Legalnews_urls}
+    
+    print(f"-> URL Distribution: General={len(general_urls)}, News={len(news_urls)}, Patents={len(Patents_urls)}, Conference={len(conf_urls)}, Legalnews={len(Legalnews_urls)}")
+    print(f"-> Report URLs: {len(report_urls)}, Extract URLs: {len(extract_urls)}")
+
+    # Phase 3: Intermediate reports (using only general URLs)
+    url_batches = [report_urls[i:i+15] for i in range(0, len(report_urls), 15)]
+    intermediate_reports = synthesize_all_intermediate_reports(
+        original_user_query=user_query,
+        url_batches=url_batches,
+        use_parallel=True,
+        max_workers=MAX_BATCH_WORKERS
+    )
+    print(f"-> Phase 3 Complete: {len(intermediate_reports)} intermediate reports generated.")
+
+    # Phase 4 & 5: Run final synthesis and structured extraction concurrently
+    print("-> Starting final report synthesis and data extraction in parallel...")
+    final_report_task = loop.run_in_executor(
+        ThreadPoolExecutor(1),
+        synthesize_final_report,
+        user_query,
+        intermediate_reports,
+        report_urls        # <-- not *all* URLs anymore
+    )
+    # The extraction function returns the full extraction dictionary including metadata
+    extraction_task = run_structured_extraction(
+        extract_urls,
+        user_query,
+        url2tag          # <-- new positional arg
+    )
+
+    # Await results
+    final_report_path, extraction_payload = await asyncio.gather(
+        final_report_task,
+        extraction_task
+    )
+    
+    # Read the final report content from the saved file
+    try:
+        with open(final_report_path, 'r', encoding='utf-8') as f:
+            final_report_content = f.read()
+    except FileNotFoundError:
+        print(f"Warning: Could not find final report file at {final_report_path}")
+        final_report_content = "Error: Final report could not be generated or found."
+
+
+    elapsed = time.perf_counter() - start_time
+    print(f"--- Pipeline complete in {elapsed:.2f} seconds ---")
+
+    # This is the crucial change: return a structured dictionary INCLUDING intermediate_reports
+    return {
+        "original_query": user_query,
+        "final_report_markdown": final_report_content,
+        "intermediate_reports": intermediate_reports,  # Added this for RAG uploader
+        "metadata": extraction_payload["metadata"],
+        "extracted_data": extraction_payload["extracted_data"],
+    }
+
+
+# This block is for standalone testing if you ever need it
+if __name__ == "__main__":
+    USER_QUERY = """Show me the latest innovations in Weatherability of Decorative Coatings.
+What trends are emerging in the Sustainability of industrial coatings in 2025?
+Find recent conferences or Patents discussing Scuff-Resistance in coatings.
+
+Search tags/topics - Product, coating, architectural or similar.
+
+Datasources/URLs (https://www.paint.org/ , https://www.coatingsworld.com/ , https://www.pcimag.com/ )"""
+    
+    async def main():
+        try:
+            results = await execute_research_pipeline(USER_QUERY)
+            print("\n\n--- PIPELINE RESULT ---")
+            print("\n## FINAL REPORT (Snippet) ##")
+            print(results['final_report_markdown'][:500] + "...")
+            print("\n## EXTRACTED DATA (Summary) ##")
+            print(json.dumps(results['metadata']['extraction_summary'], indent=2))
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
+    asyncio.run(main())

@@ -1,0 +1,321 @@
+{
+  "metadata": {
+    "timestamp": "20250616_143936",
+    "original_query": "Show me the latest innovations in Weatherability of Decorative Coatings. What trends are emerging in the Sustainability of industrial coatings in 2025? Find recent conferences or Patents discussing Scuff-Resistance in coatings.\n\nSearch tags/topics - Product, coating, architectural or similar.\n\nDatasources/URLs (https://www.paint.org/ , https://www.coatingsworld.com/ , https://www.pcimag.com/ )",
+    "urls_processed": 28,
+    "total_items_extracted": 38,
+    "extraction_summary": {
+      "News": 16,
+      "Patents": 0,
+      "Conference": 21,
+      "Legalnews": 1,
+      "Other": 0
+    }
+  },
+  "extracted_data": {
+    "News": [
+      {
+        "type": "News",
+        "title": "DELTA Coatings Breaks Ground on New Headquarters",
+        "summary": "DELTA Coatings International has commenced construction on its new global headquarters and manufacturing plant located in Dubai Industrial City. A groundbreaking ceremony was attended by senior representatives from both DELTA Coatings and Dubai Industrial City. The new facility is designed with sustainability in mind, featuring a large rooftop solar installation to provide partial power through renewable energy, supporting the company's decarbonization goals. The plant is projected to triple the company's current manufacturing output and warehouse capacity. Belvin Marx, the general manager at DELTA Coatings, stated that the new headquarters marks a significant step in the company's evolution and will enable them to meet the growing global demand for durable polyurea coatings and enhance innovation and client value.",
+        "date": "2025-06-05",
+        "source_url": "https://www.paint.org/delta-coatings-breaks-ground-on-new-headquarters/"
+      },
+      {
+        "type": "News",
+        "title": "CIN Acquires Hempel Industrial B.V. from Hempel",
+        "summary": "Portuguese-based coatings company CIN has acquired Hempel Industrial B.V., a Netherlands-based subsidiary of Hempel. This strategic acquisition is aimed at strengthening CIN's foothold in the European market and expanding its international product portfolio. The divested business has a turnover of approximately 15 million euros. Hempel stated that this sale is part of its strategy to streamline its Energy and Infrastructure business by concentrating on its core strengths within that segment. The acquisition includes a new industrial unit, which will boost CIN's overall production capacity. With this addition, CIN will operate 11 factories across seven countries: Portugal, Spain, France, Italy, the Netherlands, Angola, and Mozambique. The specific financial terms of the deal were not disclosed as per the purchase agreement.",
+        "date": "2025-01-16",
+        "source_url": "https://www.paint.org/cin-acquires-hempel-industrial-b-v/"
+      },
+      {
+        "type": "News",
+        "title": "Market Dynamics Shaping the Global Paint and Coatings Industry",
+        "summary": "An analysis of new data reveals significant shifts in the global paint and coatings market. Key trends identified include changing regional demand patterns, the increasing influence of sustainability on product development and consumer choice, and notable developments across various industry sectors. The report explores the data and dynamics that are currently shaping the future trajectory of the industry, providing insights for stakeholders and manufacturers navigating the evolving landscape. This information is critical for strategic planning and understanding future market directions.",
+        "date": "2025-04-15",
+        "source_url": "https://www.pcimag.com/publications/3/editions/1440"
+      },
+      {
+        "type": "News",
+        "title": "New Carboxylic-Functional Ultramatte Binders for 2K Coatings",
+        "summary": "A significant breakthrough in two-component (2K) coating technology has been achieved with the development of a new carboxylic-functional ultramatte binder. This innovation is reported to deliver enhanced durability, self-healing properties, and improved environmental performance. The binder addresses the growing demand for high-performance matte finishes in various applications, offering a novel solution that combines aesthetic appeal with superior functional characteristics, marking a key advancement in matte coating technology.",
+        "date": "2025-04-11",
+        "source_url": "https://www.pcimag.com/publications/3/editions/1440"
+      },
+      {
+        "type": "News",
+        "title": "Graphene's Two-Decade Impact on Paint and Coatings Innovation",
+        "summary": "Over the last 20 years, graphene has fundamentally transformed the paint and coatings industry. Its integration into formulations has led to significant improvements in corrosion resistance, mechanical durability, electrical conductivity, and overall sustainability. This retrospective examines the evolution of graphene-enhanced coatings, highlighting key milestones and technological advancements. The material has enabled the creation of next-generation products that offer superior performance, paving the way for future innovations in smart and functional coatings.",
+        "date": "2025-04-15",
+        "source_url": "https://www.pcimag.com/publications/3/editions/1440"
+      },
+      {
+        "type": "News",
+        "title": "Fast-Cure, Flexible, and EHS-Friendly Epoxy Coating Systems",
+        "summary": "A new generation of epoxy coatings has been developed to provide fast curing times, high flexibility, and improved environmental, health, and safety (EHS) profiles. These advanced systems are engineered to maintain high tensile strength and excellent adhesion, addressing traditional limitations of fast-cure epoxies. The technology offers a solution for industrial applications where rapid return-to-service and regulatory compliance are critical, without compromising on the coating's protective performance or mechanical properties.",
+        "date": "2025-04-15",
+        "source_url": "https://www.pcimag.com/publications/3/editions/1440"
+      },
+      {
+        "type": "News",
+        "title": "Waterborne Base Coat Technology Reduces Application Time by 50%",
+        "summary": "A new waterborne base coat technology has been introduced, promising to cut automotive and industrial painting application times by half. The system allows for a single-cycle paint booth process, which significantly reduces energy consumption and lowers volatile organic compound (VOC) emissions. This innovation addresses the industry's need for more efficient and sustainable painting processes, offering considerable cost savings and environmental benefits without compromising finish quality. The product was announced on February 10, 2025.",
+        "date": "2025-02-10",
+        "source_url": "https://www.pcimag.com/publications/3/editions/1440"
+      },
+      {
+        "type": "News",
+        "title": "Arkema Establishes New Headquarters in Paris La Défense",
+        "summary": "Arkema has relocated its corporate headquarters to the Lightwell building in Paris's La Défense business district. The new 25,000 square meter facility is designed to foster collaboration and showcase the company's sustainable and high-performance materials. Notably, the interior walls are coated with a paint made from Arkema's patented SYNAQUA resin, which is solvent-free and composed of 97% bio-based molecules. Other Arkema products used in the building include Rilsan material in furniture and Bostik's adhesives and solutions for flooring installation. The building operates entirely on renewable energy, targeting HQE Exceptional and BREEAM Excellent environmental certifications, reflecting the company's focus on sustainability and innovation.",
+        "date": "2025-03-20",
+        "source_url": "https://www.coatingsworld.com/issues/2025-05-01/view_breaking-news/arkema-sets-up-its-new-headquarters-in-paris-la-defense/"
+      },
+      {
+        "type": "News",
+        "title": "AI and Machine Learning in Coatings and Ink Formulation",
+        "summary": "Artificial Intelligence (AI) and Machine Learning (ML) are being leveraged to significantly accelerate the formulation process for coatings and inks, potentially reducing the number of required experiments from hundreds down to as few as five or ten. According to Professor Samiul Amin of the University of Miami, this technology helps formulators optimize product characteristics like viscosity and rheology, which are critical for performance. His company, FastFormulator Inc., uses a 'Chemical Intelligence' model that combines AI with formulation science to develop new products, such as sustainable and biodegradable inks. The system assists in selecting the right combination of novel bio-based materials from numerous suppliers to meet specific performance expectations. Beyond formulation, AI can also monitor regulatory changes, suggest compliant substitute ingredients, and track intellectual property and patents. Despite the potential to drastically shorten time-to-market and foster innovation, industry adoption remains slow, with only about 6% of large companies reportedly having implemented AI, partly due to a cultural resistance to change. The technology is presented as a tool to enhance human productivity, not replace it, by automating repetitive tasks and allowing formulators to focus on innovation.",
+        "date": "2025-03-19",
+        "source_url": "https://www.coatingsworld.com/contents/view_online-exclusives/2025-03-19/ai-and-machine-learning-in-coatings-and-ink-formulation/"
+      },
+      {
+        "type": "News",
+        "title": "Decorative Architectural Coatings Market Trends and New Products",
+        "summary": "The global architectural coatings market, valued at $63.3 billion in 2020, is projected to reach $107.9 billion by 2030, growing at a 5.6% CAGR. Industry reports indicate a slight slowdown in the DIY segment, while the professional contractor segment is experiencing growth. According to PPG, their architectural coatings sales saw a low single-digit decrease in Q4 2023, driven by lower DIY demand but offset by growth in the professional channel, particularly through partnerships with The Home Depot. Benjamin Moore also noted a modest market contraction due to low home sales and shifting consumer spending. For 2024, color trends are moving away from cool grays towards warm neutrals, with PPG's Color of the Year being 'Limitless' and Behr's being 'Cracked Pepper'. Key product innovations include PPG's Paints App for professionals and expanded Glidden Max Flex line, and Benjamin Moore's reformulated Regal Select Interior paint with enhanced durability and the new Element Guard exterior paint designed for high moisture conditions.",
+        "date": "2024-02-02",
+        "source_url": "https://www.coatingsworld.com/issues/2024-01-01/view_features/decorative-architectural-coatings/"
+      },
+      {
+        "type": "News",
+        "title": "Brazil's Coatings Market Growth Leads Latin America in 2024",
+        "summary": "Brazil's paint and coatings market experienced robust growth of 6% during 2024, reaching a record volume of 1.983 billion liters and making it the world's fourth-largest producer, surpassing Germany. This expansion doubled the country's GDP increase. The growth was driven by strong performance across multiple sectors: automotive OEM coatings surged following a 14% rise in new vehicle sales, automotive refinish coatings grew 3.6%, and decorative paints hit a record 1.490 billion liters (a 5.9% increase), spurred by a continued home-improvement trend. Industrial coatings grew over 6.3%, boosted by government infrastructure programs like the $347 billion 'New Growth Acceleration Program' (Novo PAC). This contrasts with the wider Latin American region, where GDP growth was nearly flat at around 2.2% in 2024. The report also touches on forecasts for other nations, including Argentina and Colombia, and lists major coatings companies in the region.",
+        "date": "2025-03-31",
+        "source_url": "https://www.coatingsworld.com/issues/2025-04-01/view_latin-america-reports/brazil-growth-leads-latin-america/"
+      },
+      {
+        "type": "News",
+        "title": "N-Butylpyrrolidone (NBP) as Green Solvent to Replace NMP",
+        "summary": "Following the EPA's June 2024 proposal to ban or restrict N-methylpyrrolidone (NMP) in applications like paints and coatings, N-butylpyrrolidone (NBP) is being presented as a powerful and versatile green solvent alternative. A presentation by Eastman Chemical will demonstrate that NBP can replace NMP with minimal need for reformulation while maintaining product quality. NBP enhances the performance of industrial cleaning formulations and removers for paints, coatings, and adhesives. In polyurethane dispersion (PUD) synthesis, NBP allows formulators to reduce dimethylolpropionic acid (DMPA) content and co-solvents. It also shows improved coalescence and faster dry-to-touch times in waterborne PUD formulations, positioning it as a key alternative for companies looking to comply with new regulations. [1]",
+        "date": "2025-09-04",
+        "source_url": "https://www.pcimag.com/coatings-conference/agenda"
+      },
+      {
+        "type": "News",
+        "title": "Nouryon releases 2024 Sustainability Report",
+        "summary": "Nouryon has published its 2024 Annual Sustainability Report, detailing significant progress in its environmental and sustainability initiatives. The report highlights the company's advances in developing sustainable solutions for various markets, including paints and coatings. Key achievements include a reduction in carbon emissions and an increase in the use of renewable raw materials. For the coatings industry, this translates to a more sustainable supply chain and products with a lower environmental footprint. The report outlines Nouryon's commitment to improving safety, minimizing environmental impact, and engaging with partners to foster innovation. These efforts are crucial for coatings manufacturers who are increasingly facing regulatory pressure and consumer demand for eco-friendly products. The company's performance and targets are detailed, providing transparency for customers and stakeholders in the coatings value chain.",
+        "date": "2025-05-22",
+        "source_url": "https://www.coatingsworld.com/contents/viewwebsite/488902"
+      },
+      {
+        "type": "News",
+        "title": "Nouryon honored with Responsible Care® awards by American Chemistry Council",
+        "summary": "Nouryon announced it has received multiple Responsible Care® awards from the American Chemistry Council (ACC). These awards recognize the company's outstanding performance and commitment to environmental health, safety, and security. As a key supplier to the coatings industry, Nouryon's adherence to the Responsible Care® principles signifies a high level of operational excellence and product stewardship. The recognition underscores the company's dedication to safety and sustainability throughout its manufacturing processes, which directly benefits customers in the paints and coatings sector by ensuring reliable and responsibly produced chemical ingredients. This achievement reinforces the company’s reputation as a responsible supplier within the North American chemical industry, a critical consideration for coatings formulators managing supply chain risk and corporate responsibility mandates.",
+        "date": "2025-05-27",
+        "source_url": "https://www.coatingsworld.com/contents/viewwebsite/488902"
+      },
+      {
+        "type": "News",
+        "title": "Nouryon recognized with EcoVadis Gold rating for sustainability",
+        "summary": "Nouryon has once again received a Gold rating from EcoVadis for its sustainability performance, placing it in the top 3% of companies assessed by the organization. This rating evaluates performance across environment, labor and human rights, ethics, and sustainable procurement. For the coatings industry, this Gold rating serves as a critical third-party validation of Nouryon's status as a sustainable and ethical supplier. Coatings manufacturers can leverage this rating to ensure their own supply chains meet high sustainability standards. The strong scores reflect Nouryon's ongoing commitment to corporate social responsibility, which is an increasingly important factor in purchasing decisions within the global paints, coatings, and specialty chemicals markets. The detailed assessment provides customers with confidence in Nouryon's environmental and social governance.",
+        "date": "2025-04-15",
+        "source_url": "https://www.coatingsworld.com/contents/viewwebsite/488902"
+      },
+      {
+        "type": "News",
+        "title": "Nouryon introduces Demeon® ReNu100 biobased propellant for aerosols",
+        "summary": "Nouryon has launched Demeon® ReNu100, a versatile, high-performing, and biobased propellant for aerosol applications. This product launch is directly relevant to the coatings industry, particularly the spray paint and technical aerosol segments. Demeon® ReNu100 is presented as a sustainable alternative to traditional propellants, helping coatings manufacturers reduce the carbon footprint of their aerosol products. Its introduction addresses the growing market demand for greener formulations without compromising on performance. The product is part of Nouryon's broader strategy to innovate for sustainability, providing essential solutions that help customers in the coatings sector meet their environmental targets and respond to consumer preferences for eco-friendly products. This development is significant for formulators in the aerosol coatings market seeking to enhance the sustainability profile of their offerings.",
+        "date": "2025-04-08",
+        "source_url": "https://www.coatingsworld.com/contents/viewwebsite/488902"
+      }
+    ],
+    "Patents": [],
+    "Conference": [
+      {
+        "type": "Conference",
+        "title": "Indorama Ventures Champions Industry Transformation and Circular Innovation at APIC 2025",
+        "summary": "Indorama Ventures, a global sustainable chemical producer, highlighted its leadership in the petrochemical industry at the Asia Petrochemical Industry Conference (APIC) 2025 in Bangkok. The event, themed “Ensuring a Transformed World Prosperity – Action for Planet with Innovation and Collaboration,” served as a platform for the company to reinforce its commitment to sustainable solutions. Company executives delivered several key presentations. Group CEO Aloke Lohia stressed the importance of value chain collaboration for long-term resilience. Chief Sustainability Officer, Dr. Anthony Watanabe, spoke on reimagining petrochemicals through systemic innovation and climate-positive technologies. Dr. Tinnabhop Santadkha, a Sustainability Innovation Specialist, presented a keynote on the company's investments in alternative feedstocks, including bio-based materials and chemical recycling, to promote a circular economy and reduce emissions. Additionally, Naweensuda Krabuanrat, Head of Global CSR, discussed the development of community-based PET collection systems and public-private educational partnerships. These initiatives are directly relevant to the coatings industry, which relies on petrochemical-derived raw materials.",
+        "date": "2025-05-28",
+        "source_url": "https://www.coatingsworld.com/contents/view_breaking-news/2025-05-28/indorama-ventures-champions-industry-transformation-and-circular-innovation-at-apic-2025/"
+      },
+      {
+        "type": "Conference",
+        "title": "Coatings Trends & Technologies (CTT) Summit 2025",
+        "summary": "The Coatings Trends & Technologies (CTT) Summit is scheduled for September 3, 2025. This annual conference serves as a key event for formulators and manufacturers in both liquid and powder coatings sectors to explore recent innovations in coatings technology. The summit program combines high-quality technical presentations with a resource-rich exhibit hall and provides dedicated networking opportunities. The event aims to connect scientific minds, foster innovation, and cultivate game-changing new ideas within the coatings community. The 2025 event will also feature four new short courses offering a full day of interactive learning.",
+        "date": "2025-09-03",
+        "source_url": "https://www.pcimag.com/publications/3/editions/1440"
+      },
+      {
+        "type": "Conference",
+        "title": "2025 CoatingsTech Conference: Coatings and Technologies for a Resilient Future",
+        "summary": "The American Coatings Association (ACA) will host the 2025 CoatingsTech Conference from April 28-30, 2025, in Pittsburgh, PA. The conference, themed “Coatings and Technologies for a Resilient Future,” aims to bring together coatings professionals to discuss the latest science and technology developments in the industry. The event will address current challenges and trends, focusing on the critical role of coatings in protecting infrastructure and other valued assets. The program features specialized lectures, focused technical sessions, and four concurrent short courses on topics including 'Coatings “101”: An Introduction', 'Smart & Multi-Functional Coatings', 'Scientific Approach to Formulating with Waterborne Additives', and 'Bio-based Materials & Sustainability.' The keynote address, 'Future-proofing Buildings: Pushing the Envelope Toward a More Resilient Future,' will be delivered by Andrea Wagner Watts of GAF. Technical sessions will cover a wide range of subjects such as protective coatings, architectural coatings, functional coatings, bio-based and renewable materials, durability, and the use of Artificial Intelligence (AI) in coatings development. Notable presentations include discussions on biocide-free fouling release coatings, ultra-low emission epoxy coatings, and service life prediction (SLP) for coatings.",
+        "date": "2025-04-28",
+        "source_url": "https://www.paint.org/aca-events/2025-ctc/conference-schedule/"
+      },
+      {
+        "type": "Conference",
+        "title": "Western Coatings Show Returns to Vegas in October 2025",
+        "summary": "The Western Coatings Symposium and Show (WCS) is scheduled to take place from October 19-22, 2025, at the Paris Hotel in Las Vegas. This biennial event is a premier gathering for professionals involved in the formulation and manufacturing of coatings in the Western United States and Canada. It is organized by four regional coatings societies: the Los Angeles Society for Coatings Technology, Pacific Northwest Society for Coatings Technology, Golden Gate Society for Coatings Technology, and Arizona Society for Coatings Technology. The symposium will feature 110 technical presentations focusing on educational content and industry trends rather than product promotion. The event also includes a trade show with over 100 suppliers and a student poster session, which provides a platform for students to present research and connect with potential employers. The WCS serves as the primary income-generating event for the organizing societies, funding educational opportunities and scholarships.",
+        "date": "2025-06-05",
+        "source_url": "https://www.paint.org/coatingstech-magazine/articles/western-coatings-show-returns-to-vegas-in-october-2025/"
+      },
+      {
+        "type": "Conference",
+        "title": "American Coatings Association 2025 CoatingsTech Conference",
+        "summary": "The American Coatings Association (ACA) will host the 2025 CoatingsTech Conference in Pittsburgh, PA, from April 28–30, 2025. The event's theme is “Coatings and Technologies for a Resilient Future,” focusing on the latest scientific and technological developments within the coatings industry. The conference aims to address technology-forcing factors and help the industry meet future market challenges sustainably. It serves as a key opportunity for coatings professionals at all levels to network and learn. The keynote address, “Future-proofing Buildings: Pushing the Envelope Toward a More Resilient Future,” will be delivered by Andrea Wagner Watts of GAF. Additionally, Dr. Lipiin Sung of the National Institute of Standards and Technology (NIST) will deliver the Mattiello Memorial Lecture on “Measurement Science for Coatings: from Color Appearance to Long-Term Durability Assessment.”",
+        "date": "2025-04-28",
+        "source_url": "https://www.paint.org/aca-events/2025-ctc/"
+      },
+      {
+        "type": "Conference",
+        "title": "2025 CoatingsTech Conference on a Resilient Future",
+        "summary": "The American Coatings Association's 2025 CoatingsTech Conference gathered over 200 industry and academic professionals under the theme 'Coatings and Technologies for a Resilient Future.' The event featured a keynote by Andrea Wagner Watts of GAF on improving building enclosures with innovative coatings. The conference included four short courses on topics like 'Smart, Active & Multi-Functional Coatings' and 'Bio-based Materials and Sustainability.' It also offered over 35 advanced technical sessions on subjects such as Protective Coatings, Architectural Coatings, and Analytical Methods & Artificial Intelligence. A dedicated poster session showcased student research, with awards given for topics on biobased polymer films, corrosion-resistant soybean coatings, and wear-resistant de-icing surfaces.",
+        "date": "2025-04-29",
+        "source_url": "https://www.paint.org/aca-events/2025-coatingstech-conference-highlights/"
+      },
+      {
+        "type": "Conference",
+        "title": "Dr. Lipiin Sung Delivers Mattiello Memorial Lecture at 2025 Conference",
+        "summary": "Dr. Lipiin Sung, a research physicist at the National Institute of Standards and Technology (NIST), delivered the Mattiello Memorial Lecture at the 2025 CoatingsTech Conference. Her presentation, 'Measurement Science for Coatings: from Color Appearance to Long-Term Durability Assessment,' covered a wide range of topics including color appearance measurement, scratch and mar characterization, interface/interphase characterization, and service life prediction. Dr. Sung also discussed her current research into the circular economy, focusing on micro- and nano-plastics, and the development of a commercially viable accelerated weathering device known as SPHERE (Simulated Photodegradation via High Energy Radiant Exposure).",
+        "date": "2025-02-27",
+        "source_url": "https://www.paint.org/aca-events/2025-coatingstech-conference-highlights/"
+      },
+      {
+        "type": "Conference",
+        "title": "Low Field-NMR Paper Wins 2025 CoatingsTech Best Paper Award",
+        "summary": "The CoatingsTech Best Paper Award was presented to David Fairhurst, Ph.D., of Colloid Consultants, Ltd., for his paper titled, 'Low Field (LF)-NMR Relaxation – A Useful Technique for QC and to Determine the Equivalency of Materials for Coatings Formulations.' The paper details the application of Low Field Nuclear Magnetic Resonance (LF-NMR) as a rapid, non-destructive analytical method for evaluating aqueous and non-aqueous dispersions. The research highlights how a small, benchtop LF-NMR spectrometer can provide significant physicochemical information under real-use conditions without requiring dilution or extensive sample preparation.",
+        "date": "2025-04-29",
+        "source_url": "https://www.paint.org/aca-events/2025-coatingstech-conference-highlights/"
+      },
+      {
+        "type": "Conference",
+        "title": "AMUG Announces Keynote Speakers for 2025 Conference",
+        "summary": "The Additive Manufacturing Users Group (AMUG) has announced Ryan Watkins of NASA's Jet Propulsion Lab (JPL) and Joe Scarbo of Scarbo Performance Corp. as keynote speakers for its 2025 conference, scheduled for March 30 - April 3 in Chicago, Illinois. Watkins, a Research Engineer in JPL's Materials Development & Additive Manufacturing group, will discuss the development of 3D-printed, crushable structures for impact attenuation, detailing the challenges and successes of integrating this technology into the conservative aerospace field. His work focuses on advanced materials and computational design. Scarbo, President of Scarbo Performance, will share insights on the practical application of additive manufacturing in creating high-performance vehicles, including the SV RSR and SV Rover. His presentation will cover the rationale for choosing AM for specific components in demanding environments like the Pikes Peak International Hill Climb and the Baja 1000. The event highlights the growing role of additive manufacturing in creating functional, end-use parts, a topic of significant interest for materials science and polymer applications relevant to the coatings industry.",
+        "date": "2025-01-17",
+        "source_url": "https://www.coatingsworld.com/contents/view_breaking-news/2025-01-17/amug-announces-keynote-speakers-for-2025-conference/"
+      },
+      {
+        "type": "Conference",
+        "title": "Short Course: Surfactants and Rheology Chemistry and Application",
+        "summary": "This short course provides a comprehensive review of the chemistry, theory, mechanisms, and applications of surfactants and rheology in coatings. The session begins by covering the various types and chemical structures of commercial surfactants, followed by an in-depth look at intermolecular forces related to surface tension. Key surface activities discussed include wetting, surface transport, and micelle formation. The course also explores foam stabilization and destabilization. The second part focuses on the fundamental principles of rheology, examining influencers like chemical structure and environmental conditions. It will review deformation forces and resulting flow profiles. The curriculum is designed for formulating chemists but is also suitable for personnel in marketing, sales, and production, aiming to provide a better understanding of the critical role these components play in the quality and performance of paints and coatings. [1]",
+        "date": "2025-09-03",
+        "source_url": "https://www.pcimag.com/coatings-conference/agenda"
+      },
+      {
+        "type": "Conference",
+        "title": "Short Course: Binder Technologies in Powder Coatings",
+        "summary": "This educational course focuses on binder technologies, which are fundamental to powder coating formulations and determine key performance attributes like UV durability and corrosion resistance. The session will cover primary binder systems, discussing resin and crosslinker selection, crosslinking mechanisms, and strategies for tailoring formulations to meet specific performance needs. It will also delve into advanced topics, including various matting techniques specific to binder types and methods for formulating low-temperature-cure powder coatings. These are crucial for energy efficiency and for use on heat-sensitive substrates. The course is designed to provide formulators, raw material suppliers, and end-users with the necessary knowledge to navigate the complexities of resin selection and formulation in the powder coating industry. [1]",
+        "date": "2025-09-03",
+        "source_url": "https://www.pcimag.com/coatings-conference/agenda"
+      },
+      {
+        "type": "Conference",
+        "title": "Panel Discussion: AI-Enabled Coatings Innovation Successes",
+        "summary": "This panel discussion will explore how artificial intelligence is creating new opportunities and business models for R&D organizations in the coatings industry. Panelists from companies like Albert Invent and DyStar will discuss how top innovators are integrating large language models into their R&D pipelines. The conversation will cover the progression from structured lab data to intelligent automation and AI-powered customer experiences. A key focus will be on how AI can help bridge the significant knowledge gap between new and retiring chemists, thereby attracting new talent and reshaping the innovation process. The discussion will feature real-world case studies on how companies are using AI to reimagine their research, development, and product creation. [1]",
+        "date": "2025-09-04",
+        "source_url": "https://www.pcimag.com/coatings-conference/agenda"
+      },
+      {
+        "type": "Conference",
+        "title": "High-Renewable, Oil-Modified PUD for Sustainable Wood Coatings",
+        "summary": "This presentation introduces a novel technology for developing high-renewable content polyurethane dispersions (PUDs) from natural sources like soya oils, ensuring full traceability and minimal interference with the food chain. These PUDs enable the formulation of low-VOC, bio-based coatings that deliver exceptional performance without requiring driers or other harmful additives. By using renewable raw materials, this innovation represents a significant advancement in sustainable coatings, offering both environmental advantages and superior performance for wood coatings. The session, presented by Lubrizol, will cover the formulation process, characterization studies, and performance evaluations of coatings developed with this new technology. [1]",
+        "date": "2025-09-04",
+        "source_url": "https://www.pcimag.com/coatings-conference/agenda"
+      },
+      {
+        "type": "Conference",
+        "title": "Innovations in Silicone Chemistry for High-Performance Coatings",
+        "summary": "This session explores the use of silicone MQ and DTQ resins, which are key components in many high-performance coatings due to their exceptional durability, chemical resistance, and weatherability. The presentation will delve into the unique chemical structures of these resins and how they contribute to superior performance in both protective and decorative applications. It will also examine how minor structural modifications can affect curing processes, gloss retention, and mechanical properties. Furthermore, the discussion will address the role of these silicone resins in promoting sustainability by enabling the development of eco-friendly formulations with reduced solvent content and low VOC emissions. The insights will be provided by John Grande of Siltech Corporation. [1]",
+        "date": "2025-09-04",
+        "source_url": "https://www.pcimag.com/coatings-conference/agenda"
+      },
+      {
+        "type": "Conference",
+        "title": "Advancements in TMA-Free Polyester Resins for Hybrid Powder Coatings",
+        "summary": "Polyester-epoxy hybrids are extensively used in powder coatings for applications from office furniture to high-performance primers. Traditionally, trimellitic anhydride (TMA) has been a crucial monomer in these resins, but it poses health risks and is subject to price volatility. This presentation by Covestro LLC will discuss recent advancements in TMA-free polyester resin technology. These new resins eliminate the health and cost concerns associated with TMA while also offering sustainability benefits through the use of bio-based materials. The new technology maintains high performance standards, particularly in matting capabilities, proving to be equal to or better than previous generations and current market alternatives. [1]",
+        "date": "2025-09-04",
+        "source_url": "https://www.pcimag.com/coatings-conference/agenda"
+      },
+      {
+        "type": "Conference",
+        "title": "Future-Proofing Corrosion Control with Organic Inhibitors",
+        "summary": "Corrosion inhibitors are vital for protecting metal surfaces. However, many conventional inorganic inhibitors like lead, chromium, and zinc contain toxic heavy metals and are facing increased regulatory pressure. This presentation from ICL - Halox discusses new organic corrosion inhibitors as sustainable alternatives. These organic inhibitors offer a different mechanism for corrosion control that can reduce or eliminate the need for heavy metals and can be used to synergistically enhance the performance of existing inhibitor packages. The session will review the mechanisms by which these organic inhibitors function and provide case studies highlighting factors that influence their effectiveness, such as chemical structure, resin compatibility, and use level. [1]",
+        "date": "2025-09-04",
+        "source_url": "https://www.pcimag.com/coatings-conference/agenda"
+      },
+      {
+        "type": "Conference",
+        "title": "Sustainable, Smart Corrosion Protection Additives by SynMatter",
+        "summary": "This presentation by SynMatter Co. introduces 'smart particles,' a patented class of coating additives developed by NASA that provide high levels of corrosion resistance. These additives release environmentally friendly corrosion inhibitors on-demand in response to the onset of corrosion, delivering targeted protection. In extensive laboratory and atmospheric testing, these heavy-metal-free additives have demonstrated outstanding performance in various coatings, potentially doubling the protective coating lifetime. They can be formulated into coatings or post-added, offering a significant reduction in maintenance costs for marine, defense, and infrastructure industries. As replacements for zinc and other harmful inhibitors, they minimize environmental and health impacts. [1]",
+        "date": "2025-09-04",
+        "source_url": "https://www.pcimag.com/coatings-conference/agenda"
+      },
+      {
+        "type": "Conference",
+        "title": "ACA's 2025 CoatingsTech Conference in Pittsburgh",
+        "summary": "The American Coatings Association (ACA) held its 2025 CoatingsTech Conference from Monday, April 28, to Wednesday, April 30, 2025, at the Omni William Penn in Pittsburgh, PA. [1] The event was designed as a key forum for all levels of coatings professionals to engage with the latest industry developments. [1] It featured a comprehensive program of specialized lectures from prominent industry experts and focused technical sessions. [1] The conference highlighted the latest scientific and technological advancements in the coatings field. A primary goal was to provide attendees with insights into technology-forcing factors, aiming to help the industry develop a sustainable approach to overcoming future market challenges. [1] The event has already taken place. [1]",
+        "date": "2025-04-28",
+        "source_url": "https://www.paint.org/event/2025-coatingstech-conference/"
+      },
+      {
+        "type": "Conference",
+        "title": "David Fairhurst Honored with Best Paper Award at CoatingsTech 2025",
+        "summary": "On April 29, 2025, the American Coatings Association (ACA) announced that David Fairhurst was the recipient of the 2025 CoatingsTech Best Paper Award. [1] This prestigious award was presented during the 2025 CoatingsTech Conference. [1] The Best Paper Award is a significant industry recognition that honors an individual for their outstanding contribution to coatings technology, as demonstrated through a technical paper and presentation. The selection is typically based on the scientific merit, clarity, and the potential impact of the research on the coatings industry. This award highlights the ACA's commitment to fostering innovation and academic excellence within the paint and coatings sector.",
+        "date": "2025-04-29",
+        "source_url": "https://www.paint.org/event/2025-coatingstech-conference/"
+      },
+      {
+        "type": "Conference",
+        "title": "Dr. Lipiin Sung Chosen for Mattiello Lecture at 2025 Conference",
+        "summary": "The American Coatings Association (ACA) announced on February 27, 2025, that Dr. Lipiin Sung was selected to deliver the esteemed Joseph J. Mattiello Memorial Lecture at the 2025 CoatingsTech Conference. [1] This lectureship is one of the highest honors in the coatings industry, bestowed upon an individual who has made outstanding contributions to the field of paint and coatings science and technology. The Mattiello Lecture is a centerpiece of the conference, providing a platform for a distinguished scientist to share significant research and insights with the broader technical community. The selection of Dr. Sung underscores the importance of her work and its impact on the future direction of coatings technology.",
+        "date": "2025-02-27",
+        "source_url": "https://www.paint.org/event/2025-coatingstech-conference/"
+      },
+      {
+        "type": "Conference",
+        "title": "Nouryon showcases innovations at European Coatings Show 2025",
+        "summary": "Nouryon actively participated in the European Coatings Show 2025, a premier event for the international paints and coatings industry. At the conference, the company highlighted its latest innovative solutions and engaged with industry professionals through a series of presentations and discussions. This participation allowed Nouryon to demonstrate its expertise and new technologies designed to enhance the performance, durability, and sustainability of paint and coating formulations. By presenting at such a key industry gathering, Nouryon reinforced its market presence and gathered valuable insights into emerging trends and customer needs. The event served as a platform to launch new products and strengthen partnerships with coatings manufacturers, formulators, and raw material suppliers from around the globe, solidifying its role as a key innovator in the sector.",
+        "date": "2025-04-01",
+        "source_url": "https://www.coatingsworld.com/contents/viewwebsite/488902"
+      }
+    ],
+    "Legalnews": [
+      {
+        "type": "Legalnews",
+        "title": "SCAQMD Sets Hearing for Solvent Cleaning Rule Amendments",
+        "summary": "The South Coast Air Quality Management District (SCAQMD) scheduled a public hearing for June 6, 2025, to consider proposed amendments to its rule governing solvent cleaning operations. [1] This regulatory update, announced on May 12, 2025, is relevant to the coatings industry, which utilizes solvents in various manufacturing and application processes. [1] Such rule changes often involve adjustments to volatile organic compound (VOC) limits, new requirements for cleaning technologies, and updated reporting or record-keeping mandates. Companies in the jurisdiction must monitor these developments to ensure their operations remain in compliance, potentially requiring modifications to their processes or materials to meet stricter environmental standards.",
+        "date": "2025-05-12",
+        "source_url": "https://www.paint.org/event/2025-coatingstech-conference/"
+      }
+    ],
+    "Other": []
+  },
+  "processed_urls": [
+    "https://www.pcimag.com/articles/112276-the-automotive-coatings-landscape",
+    "https://www.pcimag.com/publications/3/editions/1440",
+    "https://www.pcimag.com/articles/112734-graphene-as-a-chemical-additive",
+    "https://www.paint.org/delta-coatings-breaks-ground-on-new-headquarters/",
+    "https://www.paint.org/cin-acquires-hempel-industrial-b-v/",
+    "https://www.coatingsworld.com/contents/view_breaking-news/2025-05-28/indorama-ventures-champions-industry-transformation-and-circular-innovation-at-apic-2025/",
+    "https://go.paint.org/e/879802/AmericanCoatingsAssociation/2r4hs5/764437228/h/EptA-Fu1fT43WKcSHi75d0WfybhwXLv6ZsD9Wht6NCw",
+    "https://www.pcimag.com/articles/113091-maximizing-filtration-solutions-for-various-liquid-processes",
+    "https://www.pcimag.com/articles/113437-ecs-2025-a-hotspot-for-innovation",
+    "https://www.coatingsworld.com/issues/2023-03-01/view_features/the-2023-automotive-coatings-market/",
+    "https://www.coatingsworld.com/issues/2025-05-01/view_breaking-news/arkema-sets-up-its-new-headquarters-in-paris-la-defense/",
+    "https://www.coatingsworld.com/contents/view_online-exclusives/2025-03-19/ai-and-machine-learning-in-coatings-and-ink-formulation/",
+    "https://www.pcimag.com/coatings-conference/agenda",
+    "https://www.coatingsworld.com/buyersguide/profile/evonik-corporation-791352/",
+    "https://www.pcimag.com/articles/112430-thats-a-wrap-on-the-acs",
+    "https://www.paint.org/coatingstech-magazine/articles/western-coatings-show-returns-to-vegas-in-october-2025/",
+    "https://www.coatingsworld.com/issues/2024-01-01/view_features/decorative-architectural-coatings/",
+    "https://www.paint.org/aca-events/2025-ctc/conference-schedule/",
+    "https://www.pcimag.com/coatings-conference/agenda",
+    "https://www.paint.org/aca-events/ctc-2023/",
+    "https://www.paint.org/aca-events/2025-ctc/",
+    "https://www.paint.org/aca-events/2025-coatingstech-conference-highlights/",
+    "https://www.paint.org/event/2025-coatingstech-conference/",
+    "https://www.coatingsworld.com/contents/view_breaking-news/2025-01-17/amug-announces-keynote-speakers-for-2025-conference/",
+    "https://www.coatingsworld.com/issues/2025-04-01/view_latin-america-reports/brazil-growth-leads-latin-america/",
+    "https://www.pcimag.com/articles/111586-how-can-the-paint-industry-improve-psra-compliance",
+    "https://www.coatingsworld.com/contents/viewwebsite/488902",
+    "https://www.coatingsworld.com/contents/viewwebsite/71873"
+  ]
+}

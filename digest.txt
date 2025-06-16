@@ -1,0 +1,2865 @@
+Directory structure:
+└── market_research_tool/
+    ├── README.md
+    ├── jobs.db
+    ├── make_ingest.py
+    ├── requirements.txt
+    ├── .env.example
+    ├── api/
+    │   ├── __init__.py
+    │   ├── models.py
+    │   ├── server.py
+    │   └── __pycache__/
+    ├── database/
+    │   ├── __init__.py
+    │   ├── models.py
+    │   ├── session.py
+    │   └── __pycache__/
+    └── src/
+        ├── __init__.py
+        ├── config.py
+        ├── constants.py
+        ├── main.py
+        ├── phase1_planner.py
+        ├── phase2_searcher.py
+        ├── phase3_intermediate_synthesizer.py
+        ├── phase4_extractor.py
+        ├── phase5_final_synthesizer.py
+        ├── rag_uploader.py
+        └── __pycache__/
+
+================================================
+File: README.md
+================================================
+# Market Research Automation Tool
+
+A modular pipeline that automates desk research for the paint & coatings industry. The system ingests a natural‑language brief, plans targeted search queries, collects and synthesises web content, and returns both an executive‑level report and structured data (news, Patents articles, conference events, Legalnews). It is exposed through a **FastAPI** micro‑service as well as a CLI entry‑point for batch jobs.
+
+---
+
+## 1 — Key Features
+
+| Capability                              | Description                                                                                                                                                         |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Bucketed query planning**             | Gemini analyses the user brief and produces site‑restricted Google CSE queries, organised into *News*, *Patents*, *Conference*, *Legalnews* and *General* buckets. |
+| **Parallel custom‑search harvesting**   | Parameterised concurrency for Google CSE with per‑thread service instances to avoid throttling.                                                                     |
+| **Context‑aware synthesis**             | Intermediate sub‑reports per 15‑URL batch; final executive report merges these into a cohesive analysis with inline citations.                                      |
+| **Targeted structured extraction**      | Separate Gemini extractor returns normalised JSON objects (type, title, summary, date, source\_url) only from the specific URLs allocated for structured data.      |
+| **Language enforcement**                | Extractor prompt filters out non‑English content to maintain consistent output quality.                                                                             |
+| **Configurable limits**                 | Central `src/constants.py` governs search result counts, batch sizes, Gemini parallelism and extraction quotas.                                                     |
+| **Async & multithreaded orchestration** | Asyncio + `ThreadPoolExecutor` for optimal IO‑bound and CPU‑bound step overlap.                                                                                     |
+| **REST API**                            | `/api/research` (submit), `/api/research/status/{id}` (poll), `/api/research/result/{id}` (retrieve).                                                               |
+| **Extensible design**                   | Each pipeline phase is its own module; easy to swap LLMs, add new data sources, or introduce caching.                                                               |
+
+---
+
+## 2 — Directory Structure
+
+```text
+market_research_tool/
+├─ api/                 # FastAPI service
+│  ├─ models.py         # Pydantic request / response models
+│  └─ server.py         # HTTP endpoints & background task orchestration
+├─ src/                 # Pipeline implementation
+│  ├─ config.py         # Environment variable loading & validation
+│  ├─ constants.py      # Centralised runtime limits
+│  ├─ main.py           # Orchestrator (execute_research_pipeline)
+│  ├─ phase1_planner.py
+│  ├─ phase2_searcher.py
+│  ├─ phase3_intermediate_synthesizer.py
+│  ├─ phase4_extractor.py
+│  └─ phase5_final_synthesizer.py
+├─ reports/             # Markdown reports (auto‑generated)
+├─ extractions/         # Structured JSON extractions (auto‑generated)
+├─ requirements.txt
+└─ .env.example         # Template for secrets
+```
+
+---
+
+## 3 — Installation
+
+### 3.1 Prerequisites
+
+* Python 3.11 +
+* A Google Cloud account with **Custom Search JSON API** enabled
+* Gemini API access (or adjust to another LLM)
+
+### 3.2 Set‑up
+
+```bash
+# clone
+$ git clone <repo‑url> market_research_tool && cd $_
+
+# create isolated environment
+$ python -m venv venv
+$ source venv/bin/activate
+
+# install dependencies
+(venv) $ pip install -r requirements.txt
+
+# copy secrets template
+(venv) $ cp .env.example .env
+# edit .env with your API keys & CSE ID
+```
+
+---
+
+## 4 — Running the Pipeline
+
+### 4.1 CLI (one‑off batch)
+
+```bash
+(venv) $ python -m src.main <<EOF
+Show me the latest innovations in Weatherability of Decorative Coatings.
+What trends are emerging in the Sustainability of industrial coatings in 2025?
+Find recent conferences or Patents discussing Scuff‑Resistance in coatings.
+EOF
+```
+
+Progress is logged to STDOUT; final artefacts appear in `reports/` and `extractions/`.
+
+### 4.2 API Service
+
+```bash
+(venv) $ uvicorn api.server:app --reload
+```
+
+Interactive OpenAPI documentation becomes available at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
+
+---
+
+## 5 — API Reference
+
+### 5.1 Submit a Job
+
+`POST /api/research`
+
+```jsonc
+{
+  "query": "- Show me the latest innovations in Weatherability of Decorative Coatings.\n- What trends are emerging in the Sustainability of industrial coatings in 2025?\n- Find recent conferences or Patents discussing Scuff-Resistance in coatings.\n\nSearch tags/topics – Product, coating, architectural or similar.\nDatasources/URLs (https://www.paint.org/, https://www.coatingsworld.com/, https://www.pcimag.com/)"
+}
+```
+
+Response `202 Accepted`
+
+```json
+{
+  "job_id": "fbadce0d-f51a-4e1d-83ad-cd971c7ba4c7",
+  "status": "pending",
+  "status_url": "http://127.0.0.1:8000/api/research/status/fbadce0d-f51a-4e1d-83ad-cd971c7ba4c7",
+  "result_url": "http://127.0.0.1:8000/api/research/result/fbadce0d-f51a-4e1d-83ad-cd971c7ba4c7"
+}
+```
+
+### 5.2 Check Status
+
+`GET /api/research/status/{job_id}` → `JobStatusResponse`
+
+```json
+{
+  "job_id": "...",
+  "status": "running",
+  "message": "Job status is running"
+}
+```
+
+### 5.3 Retrieve Result
+
+`GET /api/research/result/{job_id}` → `ResearchResult`
+
+* `final_report_markdown` — complete executive report
+* `extracted_data` — categorised list (`News` | `Patents` | `Conference` | `Legalnews` | `Other`)
+* `metadata` — timing, counts, URL list
+
+If the job is still running a `202` with retry advice is returned. On failure a `500` with error detail is issued.
+
+---
+
+## 6 — Configuration & Tuning
+
+`src/constants.py` centralises critical limits:
+
+| Constant                 | Purpose                                                  | Default |
+| ------------------------ | -------------------------------------------------------- | ------- |
+| `MAX_SEARCH_RESULTS`     | Google CSE results per query                             | 7       |
+| `MAX_SEARCH_WORKERS`     | Threads for CSE calls                                    | 6       |
+| `MAX_GENERAL_FOR_REPORT` | URLs allowed in the **General** bucket (feeds Phase‑3/5) | 30      |
+| `MAX_PER_BUCKET_EXTRACT` | URLs per specialised bucket (feeds Phase‑4)              | 9       |
+| `EXTRACT_BATCH_SIZE`     | URLs processed per Gemini extract batch                  | 18      |
+| `MAX_GEMINI_PARALLEL`    | Concurrent Gemini extract calls                          | 6       |
+
+**Note:** Google CSE date sorting may fail with HTTP 400 errors for some queries. The system automatically retries without the sort parameter when this occurs.
+
+---
+
+## 7 — Logging & Artefacts
+
+* **Intermediate sub‑reports** → `reports/intermediate_reports/`
+* **Final reports** → `reports/`
+* **Structured JSON extractions** → `extractions/`
+* STDOUT logs encapsulate phase boundaries, counts, durations and error traces; suitable for piping into a log aggregator.
+
+---
+
+## 8 — Extending the Pipeline
+
+1. **Add a new data source**: update `phase1_planner.py` prompt to include the domain, adjust CSE queries as required.
+2. **Swap LLM**: provide an alternative client in `src/llm_adapter.py` and swap calls in phases; ensure streaming token semantics are preserved.
+3. **Introduce caching**: layer a Redis cache around `_execute_single_query` and `extract_data_from_single_url` to reduce API spend.
+4. **Dockerisation**: create a slim Python image, copy project, install requirements, expose port 8000. Mount a volume for reports/extractions if persistence is required.
+
+---
+
+## 9 — Testing & Quality
+
+```bash
+# run unit tests (pytest recommended)
+(venv) $ pytest -q
+
+# static typing
+(venv) $ mypy src/ api/
+
+# style guide (PEP‑8 via ruff)
+(venv) $ ruff check .
+```
+
+---
+
+## 10 — Contribution Guidelines
+
+* Fork the repository & create a feature branch.
+* Follow the existing module structure; each phase should remain independently testable.
+* Run unit & integration tests before submitting a PR.
+* Document any public‑facing changes (API, constants) in this README.
+
+---
+
+## 11 — License
+
+Distributed under the **MIT License**. See `LICENSE` for details.
+
+---
+
+## 12 — Acknowledgements
+
+* Google GenAI SDK & Gemini models
+* Google Custom Search JSON API
+* FastAPI & Uvicorn
+* Paint.org, CoatingsWorld.com, PCImag.com — publicly accessible content utilised for demonstration purposes only.
+
+
+
+================================================
+File: jobs.db
+================================================
+[Non-text file]
+
+
+================================================
+File: make_ingest.py
+================================================
+# make_ingest.py
+
+import sys
+import subprocess
+
+def generate_digest_cli(source, output_file="digest.txt", exclude_exts=None):
+    cmd = ["gitingest", source, "-o", output_file]
+    
+    # Always exclude reports directory
+    exclusions = ["reports", "reports/*", "extractions", "extractions/*", "logs.txt", "__pycache__"]
+    
+    if exclude_exts:
+        # Format extensions as "*.ext" and add to exclusions
+        exclusions.extend(f"*{ext}" for ext in exclude_exts)
+
+    if exclusions:
+        patterns = ",".join(exclusions)
+        cmd += ["-e", patterns]
+
+    print("Running:", " ".join(cmd))
+
+    try:
+        subprocess.run(cmd, check=True)
+        print(f"✅ Digest written to {output_file}")
+    except subprocess.CalledProcessError as e:
+        print("❌ Error during gitingest execution:", e)
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python make_ingest.py <path_or_url> [output_file] [excluded_exts...]")
+        sys.exit(1)
+
+    source = sys.argv[1]
+    
+    # Determine if second argument is an output file or an extension
+    output_file = "digest.txt"
+    exclude_exts = []
+
+    if len(sys.argv) >= 3 and sys.argv[2].startswith(".") is False:
+        output_file = sys.argv[2]
+        exclude_exts = sys.argv[3:]
+    else:
+        exclude_exts = sys.argv[2:]
+
+    generate_digest_cli(source, output_file, exclude_exts)
+
+
+
+================================================
+File: requirements.txt
+================================================
+annotated-types==0.7.0
+anyio==4.9.0
+cachetools==5.5.2
+certifi==2025.6.15
+charset-normalizer==3.4.2
+google-api-core==2.25.1
+google-api-python-client==2.172.0
+google-auth==2.40.3
+google-auth-httplib2==0.2.0
+google-genai>=1.20.0,<2.0
+googleapis-common-protos==1.70.0
+h11==0.16.0
+httpcore==1.0.9
+reportlab
+httplib2==0.22.0
+httpx==0.28.1
+idna==3.10
+sqlalchemy==2.0.31
+proto-plus==1.26.1
+protobuf==3.20.3
+pyasn1==0.6.1
+pyasn1_modules==0.4.2
+pydantic==2.11.7
+pydantic_core==2.33.2
+pyparsing==3.2.3
+python-dotenv==1.1.0
+requests==2.32.4
+rsa==4.9.1
+sniffio==1.3.1
+typing-inspection==0.4.1
+typing_extensions==4.14.0
+uritemplate==4.2.0
+urllib3==2.4.0
+websockets==15.0.1
+fastapi==0.110.0
+uvicorn[standard]==0.29.0
+python-dateutil==2.9.0
+
+
+
+================================================
+File: .env.example
+================================================
+# =============================================================================
+# MARKET INTELLIGENCE AGENT - Environment Configuration
+# =============================================================================
+
+# --- Google/Gemini API Configuration ---
+GEMINI_API_KEY=your_gemini_api_key_here
+GOOGLE_API_KEY=your_google_search_api_key_here
+GOOGLE_CSE_ID=your_custom_search_engine_id_here
+
+# --- RAG API Configuration ---
+RAG_API_BASE_URL=https://your-rag-api-base-url.com
+RAG_API_TOKEN=your_rag_api_token_here
+RAG_API_ORG_ID=your_organization_id_here
+RAG_API_USER_TYPE=pro
+
+# =============================================================================
+
+
+================================================
+File: api/__init__.py
+================================================
+
+
+
+================================================
+File: api/models.py
+================================================
+# api/models.py
+from typing import List, Optional, Dict, Any, Union
+from pydantic import BaseModel, Field
+
+# --- Request Models ---
+
+class ResearchRequest(BaseModel):
+    """The user's initial request to start a research job."""
+    query: str = Field(
+        ...,
+        description="The natural language query for the market research.",
+        example="Show me the latest innovations in Weatherability of Decorative Coatings.",
+        min_length=10,
+        max_length=2000
+    )
+    upload_to_rag: bool = Field(
+        default=True,
+        description="If true, all generated artifacts will be uploaded to the internal RAG system for future querying."
+    )
+
+class RAGQueryRequest(BaseModel):
+    """Request to query a RAG collection."""
+    collection_name: str = Field(
+        ..., 
+        description="The name of the RAG collection to query (e.g., 'research_job_<uuid>')",
+        example="research_job_12345678_1234_5678_9abc_123456789def"
+    )
+    question: str = Field(
+        ..., 
+        description="The question to ask the RAG system.",
+        example="What are the latest innovations in coating technology?",
+        min_length=5,
+        max_length=1000
+    )
+
+# --- Response Models ---
+
+class JobSubmissionResponse(BaseModel):
+    """Response after submitting a job, providing the ID and status URL."""
+    job_id: str
+    status: str = "pending"
+    status_url: str
+    result_url: str
+
+
+class JobStatusResponse(BaseModel):
+    """Response for checking the status of a job."""
+    job_id: str
+    status: str = Field(..., description="Current job status: pending, running, completed, or failed")
+    message: str = Field(..., description="Detailed status message including RAG upload status if applicable")
+
+
+class StructuredDataItem(BaseModel):
+    """A single extracted item, like a news article or patent."""
+    type: str = Field(..., description="Type of the item (News, Patents, Conference, etc.)")
+    title: str = Field(..., description="Title of the item")
+    summary: str = Field(..., description="Summary or description of the item")
+    date: Optional[str] = Field(None, description="Publication or event date")
+    source_url: str = Field(..., description="Original URL of the item")
+
+
+class ExtractedData(BaseModel):
+    """The categorized collection of all structured items."""
+    News: List[StructuredDataItem] = Field(default_factory=list, description="News articles and updates")
+    Patents: List[StructuredDataItem] = Field(default_factory=list, description="Patent filings and innovations")
+    Conference: List[StructuredDataItem] = Field(default_factory=list, description="Conference proceedings and presentations")
+    Legalnews: List[StructuredDataItem] = Field(default_factory=list, description="Legal news and regulatory updates")
+    Other: List[StructuredDataItem] = Field(default_factory=list, description="Other miscellaneous items")
+
+
+class RAGInfo(BaseModel):
+    """Information about RAG upload status and collection."""
+    upload_requested: bool = Field(..., description="Whether RAG upload was requested")
+    rag_status: Optional[str] = Field(None, description="Status of RAG upload: pending, uploaded, failed")
+    collection_name: Optional[str] = Field(None, description="Name of the created RAG collection")
+    rag_error: Optional[str] = Field(None, description="Error message if RAG upload failed")
+
+
+class ResearchResult(BaseModel):
+    """The final, complete result of a research job."""
+    job_id: str
+    status: str
+    original_query: str = Field(..., description="The original research query")
+    final_report_markdown: str = Field(..., description="Complete final report in markdown format")
+    extracted_data: ExtractedData = Field(..., description="Structured extracted data categorized by type")
+    metadata: Dict[str, Any] = Field(..., description="Additional metadata including extraction stats and RAG info")
+
+
+class RAGQueryResponse(BaseModel):
+    """Response from querying a RAG collection."""
+    collection_name: str
+    question: str
+    answer: Union[Dict[str, Any], str] = Field(..., description="The answer from the RAG system")
+    
+    class Config:
+        # Allow for flexibility in the answer format
+        extra = "allow"
+
+
+class RAGCollectionInfo(BaseModel):
+    """Information about a job's RAG collection."""
+    job_id: str
+    rag_status: str = Field(..., description="Status: pending, uploaded, failed, unknown")
+    collection_name: Optional[str] = Field(None, description="Name of the RAG collection if available")
+    rag_error: Optional[str] = Field(None, description="Error message if upload failed")
+    can_query: bool = Field(..., description="Whether the collection is ready for querying")
+
+
+================================================
+File: api/server.py
+================================================
+# api/server.py
+import uuid
+from fastapi import FastAPI, BackgroundTasks, HTTPException, Request, Depends
+from fastapi.responses import JSONResponse
+import asyncio
+import requests
+from sqlalchemy.orm import Session
+
+# --- DB Imports ---
+from database.session import SessionLocal, init_db, engine
+from database.models import Job as DBJob # Use an alias to avoid name conflicts
+
+# --- App Imports ---
+from api.models import (
+    ResearchRequest, JobSubmissionResponse, JobStatusResponse, ResearchResult, ExtractedData,
+    RAGQueryRequest, RAGQueryResponse, RAGCollectionInfo
+)
+from src.main import execute_research_pipeline
+from src.config import assert_all_env, assert_rag_env
+from src.rag_uploader import upload_artifacts_to_rag, query_rag_collection
+
+# --- App Setup ---
+app = FastAPI(
+    title="Market Research Automation API",
+    description="An API to run an automated market research pipeline.",
+    version="1.0.0"
+)
+
+# --- Database Initialization on Startup ---
+@app.on_event("startup")
+def on_startup():
+    init_db()
+
+# --- Dependency to get a DB session ---
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# --- Background Task (Now DB-aware) ---
+def run_and_store_results(job_id: str, query: str, should_upload_to_rag: bool):
+    # Each background task gets its own database session
+    db = SessionLocal()
+    try:
+        job = db.query(DBJob).filter(DBJob.id == job_id).first()
+        if not job:
+            print(f"Job {job_id} not found in DB for background task. Aborting.")
+            return
+
+        print(f"Job {job_id}: Starting research pipeline...")
+        job.status = 'running'
+        db.commit()
+
+        # Run the pipeline in a new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        result_data = loop.run_until_complete(execute_research_pipeline(query))
+        
+        job.result = result_data
+        job.status = 'completed'
+        db.commit()
+        print(f"Job {job_id}: Pipeline completed successfully.")
+        
+        if should_upload_to_rag:
+            print(f"Job {job_id}: Starting RAG upload...")
+            job.rag_status = 'pending_upload'
+            db.commit()
+            
+            try:
+                collection_name = upload_artifacts_to_rag(job_id, result_data)
+                
+                if collection_name:
+                    job.rag_collection_name = collection_name
+                    job.rag_status = 'uploaded'
+                    print(f"Job {job_id}: RAG upload successful. Collection: {collection_name}")
+                else:
+                    job.rag_status = 'failed'
+                    job.rag_error = 'RAG upload failed - see logs for details'
+                    print(f"Job {job_id}: RAG upload failed")
+                db.commit()
+            except Exception as rag_error:
+                print(f"Job {job_id}: RAG upload error: {rag_error}")
+                job.rag_status = 'failed'
+                job.rag_error = str(rag_error)
+                db.commit()
+    
+    except Exception as e:
+        print(f"Job {job_id}: Pipeline failed. Error: {e}")
+        # Make sure to update the job in the DB with the failure status
+        job_in_db = db.query(DBJob).filter(DBJob.id == job_id).first()
+        if job_in_db:
+            job_in_db.status = 'failed'
+            job_in_db.result = {"error": str(e)}
+            db.commit()
+    finally:
+        loop.close()
+        db.close()
+
+
+def _dict_to_extracted_model(raw_dict: dict) -> ExtractedData:
+    padded = {k: raw_dict.get(k, []) for k in ["News", "Patents", "Conference", "Legalnews", "Other"]}
+    return ExtractedData(**padded)
+
+
+# --- API Endpoints (Now DB-aware) ---
+
+@app.post("/api/research", response_model=JobSubmissionResponse, status_code=202)
+async def create_research_job(
+    request: Request,
+    research_request: ResearchRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db) # <-- Dependency Injection
+):
+    assert_all_env()
+    if research_request.upload_to_rag:
+        try:
+            assert_rag_env()
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Cannot process RAG upload: {e}")
+
+    job_id = str(uuid.uuid4())
+    base_url = str(request.base_url)
+
+    # Create the job record in the database
+    new_job = DBJob(
+        id=job_id,
+        status="pending",
+        original_query=research_request.query,
+        upload_to_rag=research_request.upload_to_rag,
+        rag_status="pending" if research_request.upload_to_rag else None
+    )
+    db.add(new_job)
+    db.commit()
+    db.refresh(new_job)
+
+    background_tasks.add_task(
+        run_and_store_results,
+        job_id,
+        research_request.query,
+        research_request.upload_to_rag
+    )
+
+    return {
+        "job_id": job_id,
+        "status": "pending",
+        "status_url": f"{base_url}api/research/status/{job_id}",
+        "result_url": f"{base_url}api/research/result/{job_id}"
+    }
+
+
+@app.get("/api/research/status/{job_id}", response_model=JobStatusResponse)
+async def get_research_status(job_id: str, db: Session = Depends(get_db)):
+    job = db.query(DBJob).filter(DBJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    message = f"Job status is {job.status}"
+    
+    if job.upload_to_rag:
+        rag_status = job.rag_status or 'unknown'
+        if rag_status == 'uploaded':
+            message += f". RAG upload successful (Collection: {job.rag_collection_name or 'unknown'})"
+        elif rag_status == 'failed':
+            message += f". RAG upload failed: {job.rag_error or 'Unknown RAG error'}"
+        else:
+             message += f". RAG status: {rag_status}"
+    
+    if job.status == 'failed':
+        error_msg = job.result.get('error', 'Unknown error') if job.result else 'Unknown error'
+        message = f"Job failed. Error: {error_msg}"
+
+    return {"job_id": job_id, "status": job.status, "message": message}
+
+
+@app.get("/api/research/result/{job_id}", response_model=ResearchResult)
+async def get_research_result(job_id: str, db: Session = Depends(get_db)):
+    job = db.query(DBJob).filter(DBJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if job.status in ['pending', 'running']:
+        return JSONResponse(
+            status_code=202, 
+            content={"job_id": job_id, "status": job.status, "detail": "Job is not yet complete. Please try again later."}
+        )
+
+    if job.status == 'failed':
+        error = job.result.get('error', 'Unknown error') if job.result else 'Unknown error'
+        return JSONResponse(
+            status_code=500,
+            content={"job_id": job_id, "status": "failed", "error": error}
+        )
+    
+    if job.status != 'completed' or not job.result:
+         raise HTTPException(status_code=404, detail="Job result not available.")
+
+    data = job.result
+    enhanced_metadata = data.get("metadata", {}).copy()
+    if job.upload_to_rag:
+        enhanced_metadata['rag_info'] = {
+            'upload_requested': True,
+            'rag_status': job.rag_status,
+            'collection_name': job.rag_collection_name,
+            'rag_error': job.rag_error
+        }
+    
+    return ResearchResult(
+        job_id=job_id,
+        status='completed',
+        original_query=data["original_query"],
+        final_report_markdown=data["final_report_markdown"],
+        extracted_data=_dict_to_extracted_model(data["extracted_data"]),
+        metadata=enhanced_metadata
+    )
+
+
+@app.post("/api/rag/query", response_model=RAGQueryResponse)
+async def ask_rag_collection(query_request: RAGQueryRequest, db: Session = Depends(get_db)):
+    try:
+        assert_rag_env()
+
+        # Find the job associated with the collection to get/update chat context
+        job = db.query(DBJob).filter(DBJob.rag_collection_name == query_request.collection_name).first()
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Collection '{query_request.collection_name}' not associated with any known job.")
+
+        # Pass the current context from the DB
+        answer_payload = query_rag_collection(
+            collection_name=query_request.collection_name,
+            question=query_request.question,
+            current_chat_context=job.rag_chat_context # Pass current context
+        )
+
+        # Update the chat context in the DB
+        if answer_payload and 'chat_context' in answer_payload:
+            new_fragment = answer_payload['chat_context']
+            separator = " " if job.rag_chat_context else ""
+            job.rag_chat_context += separator + new_fragment
+            db.commit()
+
+        return RAGQueryResponse(
+            collection_name=query_request.collection_name,
+            question=query_request.question,
+            answer=answer_payload
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"RAG system not properly configured: {str(e)}")
+    except requests.exceptions.HTTPError as e:
+        status_code = e.response.status_code if e.response else 500
+        error_detail = e.response.text if e.response else str(e)
+        raise HTTPException(status_code=status_code, detail=f"Error from RAG API: {error_detail}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An internal error occurred: {str(e)}")
+
+
+@app.get("/api/research/{job_id}/rag", response_model=RAGCollectionInfo)
+async def get_job_rag_info(job_id: str, db: Session = Depends(get_db)):
+    job = db.query(DBJob).filter(DBJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    if not job.upload_to_rag:
+        raise HTTPException(status_code=400, detail="RAG upload was not requested for this job")
+    
+    return RAGCollectionInfo(
+        job_id=job_id,
+        rag_status=job.rag_status or 'unknown',
+        collection_name=job.rag_collection_name,
+        rag_error=job.rag_error,
+        can_query=(job.rag_status == 'uploaded' and job.rag_collection_name is not None)
+    )
+
+
+
+================================================
+File: database/__init__.py
+================================================
+# database/__init__.py
+# This file makes the database directory a Python package 
+
+
+================================================
+File: database/models.py
+================================================
+# database/models.py
+from sqlalchemy import Column, String, JSON, Boolean, Text
+from database.session import Base
+
+class Job(Base):
+    __tablename__ = "jobs"
+
+    # Core job details
+    id = Column(String, primary_key=True, index=True)
+    status = Column(String, index=True, default="pending")
+    original_query = Column(Text)
+    
+    # Stores the final research result dictionary as a JSON object
+    # This is incredibly flexible.
+    result = Column(JSON)
+    
+    # RAG-specific details
+    upload_to_rag = Column(Boolean, default=False)
+    rag_status = Column(String, nullable=True)
+    rag_collection_name = Column(String, nullable=True)
+    rag_error = Column(String, nullable=True)
+    
+    # To store the conversational history for RAG
+    rag_chat_context = Column(Text, default="") 
+
+
+================================================
+File: database/session.py
+================================================
+# database/session.py
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+
+# The database file will be created in the project root
+DATABASE_URL = "sqlite:///./jobs.db"
+
+# create_engine is the entry point to the database
+# connect_args is needed only for SQLite to allow multithreading
+engine = create_engine(
+    DATABASE_URL, connect_args={"check_same_thread": False}
+)
+
+# Each instance of SessionLocal will be a database session.
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Base class for our declarative models
+Base = declarative_base()
+
+# Function to create all tables in the database
+def init_db():
+    print("Initializing database and creating tables...")
+    # This will create tables for all models that inherit from Base
+    from database.models import Job  # Import model here
+    Base.metadata.create_all(bind=engine)
+    print("Database initialized.") 
+
+
+
+================================================
+File: src/__init__.py
+================================================
+
+
+
+================================================
+File: src/config.py
+================================================
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from the .env file in the project root
+# This line looks for the .env file in the parent directory of src/
+dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+load_dotenv(dotenv_path=dotenv_path)
+
+# --- API Keys ---
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
+
+# --- RAG API Config ---
+RAG_API_BASE_URL = os.getenv("RAG_API_BASE_URL")
+RAG_API_TOKEN = os.getenv("RAG_API_TOKEN")
+RAG_API_ORG_ID = os.getenv("RAG_API_ORG_ID")
+RAG_API_USER_TYPE = os.getenv("RAG_API_USER_TYPE")
+
+# --- Startup Banner ---
+def _mask_key(key_value: str | None) -> str:
+    """Mask API key for display, showing only first 4 and last 4 characters."""
+    if not key_value:
+        return "❌ NOT SET"
+    if len(key_value) <= 8:
+        return "✅ SET (short)"
+    return f"✅ SET ({key_value[:4]}...{key_value[-4:]})"
+
+print("\n" + "="*60)
+print("🔧 MARKET INTELLIGENCE AGENT - Environment Status")
+print("="*60)
+print(f"GEMINI_API_KEY:  {_mask_key(GEMINI_API_KEY)}")
+print(f"GOOGLE_API_KEY:  {_mask_key(GOOGLE_API_KEY)}")
+print(f"GOOGLE_CSE_ID:   {_mask_key(GOOGLE_CSE_ID)}")
+print("-" * 60)
+print("🔌 RAG Uploader Status")
+print(f"RAG_API_BASE_URL:    {RAG_API_BASE_URL or '❌ NOT SET'}")
+print(f"RAG_API_TOKEN: {_mask_key(RAG_API_TOKEN)}")
+print(f"RAG_API_ORG_ID:      {RAG_API_ORG_ID or '❌ NOT SET'}")
+print("="*60 + "\n")
+
+# --- Validation ---
+def assert_all_env():
+    if not all([GEMINI_API_KEY, GOOGLE_API_KEY, GOOGLE_CSE_ID]):
+        raise ValueError("Missing env vars: set GEMINI_API_KEY, GOOGLE_API_KEY, GOOGLE_CSE_ID")
+
+def assert_rag_env():
+    """Checks if all required RAG environment variables are set."""
+    if not all([RAG_API_BASE_URL, RAG_API_TOKEN, RAG_API_ORG_ID, RAG_API_USER_TYPE]):
+        raise ValueError("Missing env vars for RAG Uploader: set RAG_API_BASE_URL, RAG_API_TOKEN, RAG_API_ORG_ID, and RAG_API_USER_TYPE")
+
+# You can add other configurations here later
+# For example:
+# LLM_PLANNER_MODEL = "gemini-1.5-pro-latest"
+# LLM_SYNTHESIZER_MODEL = "gemini-1.5-flash-latest"
+
+
+================================================
+File: src/constants.py
+================================================
+# -------------------------------------------------
+#  Global throttling & limit switches for the pipeline
+# -------------------------------------------------
+MAX_SEARCH_RESULTS   = 4     # items per Google-CSE query
+MAX_SEARCH_WORKERS   = 9     # parallel threads for CSE calls
+
+MAX_GENERAL_FOR_REPORT = 18  # cap "General" URLs that feed the executive report
+
+MAX_PER_BUCKET_EXTRACT = 9   # News / Patents / Conf / Legalnews
+EXTRACT_BATCH_SIZE     = 18  # 2 × batches → 18 URLs each
+MAX_GEMINI_PARALLEL    = 9   # concurrent Gemini requests in extractor
+
+# ---- NEW ----  Global “freshness” policy -------------------------
+RECENT_YEARS = 2             # only keep items from the last N calendar years
+
+
+
+================================================
+File: src/main.py
+================================================
+# src/main.py (Refactored)
+import json
+import asyncio
+import time
+from concurrent.futures import ThreadPoolExecutor
+import os # Make sure os is imported
+
+# Keep all your existing phase imports
+from src.phase1_planner import generate_search_queries
+from src.phase2_searcher import execute_cse_searches
+from src.phase3_intermediate_synthesizer import synthesize_all_intermediate_reports
+from src.phase5_final_synthesizer import synthesize_final_report
+from src.phase4_extractor import run_structured_extraction
+from src.constants import MAX_SEARCH_WORKERS, MAX_GENERAL_FOR_REPORT, MAX_PER_BUCKET_EXTRACT
+from src.config import assert_all_env
+
+# Configuration: adjust parallelism limits
+MAX_BATCH_WORKERS = 6
+
+async def execute_research_pipeline(user_query: str) -> dict:
+    """
+    Orchestrates the market research pipeline and returns a structured result.
+    This is the core logic called by the API background task.
+    """
+    assert_all_env()
+    start_time = time.perf_counter()
+    print(f"--- Starting Pipeline for query: '{user_query[:50]}...' ---")
+
+    # Phase 1: Generate search queries
+    search_queries = generate_search_queries(user_query)
+    if not search_queries:
+        raise ValueError("Pipeline Error: No search queries were generated.")
+    total_queries = sum(len(queries) for queries in search_queries.values())
+    print(f"-> Phase 1 Complete: {total_queries} queries generated across {len(search_queries)} buckets.")
+
+    # Phase 2: Execute CSE searches
+    loop = asyncio.get_running_loop()
+    tagged_urls = await loop.run_in_executor(
+        ThreadPoolExecutor(MAX_SEARCH_WORKERS),
+        execute_cse_searches,
+        search_queries
+    )
+    if not tagged_urls:
+        raise ValueError("Pipeline Error: No URLs were collected from search.")
+    
+    print(f"-> Phase 2 Complete: {len(tagged_urls)} URLs collected across buckets.")
+
+    # 2-a: Collect bucketed URLs once
+    # tagged_urls is List[Tuple[url, bucket]]
+    bucketed: dict[str, list[str]] = {}
+    for url, bucket in tagged_urls:
+        bucketed.setdefault(bucket, []).append(url)
+
+    general_urls = bucketed.get("General", [])[:MAX_GENERAL_FOR_REPORT]   # 30 max
+    news_urls = bucketed.get("News", [])[:MAX_PER_BUCKET_EXTRACT]
+    Patents_urls = bucketed.get("Patents", [])[:MAX_PER_BUCKET_EXTRACT]
+    conf_urls = bucketed.get("Conference", [])[:MAX_PER_BUCKET_EXTRACT]
+    Legalnews_urls = bucketed.get("Legalnews", [])[:MAX_PER_BUCKET_EXTRACT]
+
+    # --- 1️⃣ URL set for the *intermediate & final* report
+    report_urls = general_urls
+
+    # --- 2️⃣ URL set for the *structured extractor*
+    extract_urls = news_urls + Patents_urls + conf_urls + Legalnews_urls
+
+    # fast look-up for guessed types (only what we pass to extractor)
+    url2tag = {u: "News" for u in news_urls} | \
+              {u: "Patents" for u in Patents_urls} | \
+              {u: "Conference" for u in conf_urls} | \
+              {u: "Legalnews" for u in Legalnews_urls}
+    
+    print(f"-> URL Distribution: General={len(general_urls)}, News={len(news_urls)}, Patents={len(Patents_urls)}, Conference={len(conf_urls)}, Legalnews={len(Legalnews_urls)}")
+    print(f"-> Report URLs: {len(report_urls)}, Extract URLs: {len(extract_urls)}")
+
+    # Phase 3: Intermediate reports (using only general URLs)
+    url_batches = [report_urls[i:i+15] for i in range(0, len(report_urls), 15)]
+    intermediate_reports = synthesize_all_intermediate_reports(
+        original_user_query=user_query,
+        url_batches=url_batches,
+        use_parallel=True,
+        max_workers=MAX_BATCH_WORKERS
+    )
+    print(f"-> Phase 3 Complete: {len(intermediate_reports)} intermediate reports generated.")
+
+    # Phase 4 & 5: Run final synthesis and structured extraction concurrently
+    print("-> Starting final report synthesis and data extraction in parallel...")
+    final_report_task = loop.run_in_executor(
+        ThreadPoolExecutor(1),
+        synthesize_final_report,
+        user_query,
+        intermediate_reports,
+        report_urls        # <-- not *all* URLs anymore
+    )
+    # The extraction function returns the full extraction dictionary including metadata
+    extraction_task = run_structured_extraction(
+        extract_urls,
+        user_query,
+        url2tag          # <-- new positional arg
+    )
+
+    # Await results
+    final_report_path, extraction_payload = await asyncio.gather(
+        final_report_task,
+        extraction_task
+    )
+    
+    # Read the final report content from the saved file
+    try:
+        with open(final_report_path, 'r', encoding='utf-8') as f:
+            final_report_content = f.read()
+    except FileNotFoundError:
+        print(f"Warning: Could not find final report file at {final_report_path}")
+        final_report_content = "Error: Final report could not be generated or found."
+
+
+    elapsed = time.perf_counter() - start_time
+    print(f"--- Pipeline complete in {elapsed:.2f} seconds ---")
+
+    # This is the crucial change: return a structured dictionary INCLUDING intermediate_reports
+    return {
+        "original_query": user_query,
+        "final_report_markdown": final_report_content,
+        "intermediate_reports": intermediate_reports,  # Added this for RAG uploader
+        "metadata": extraction_payload["metadata"],
+        "extracted_data": extraction_payload["extracted_data"],
+    }
+
+
+# This block is for standalone testing if you ever need it
+if __name__ == "__main__":
+    USER_QUERY = """Show me the latest innovations in Weatherability of Decorative Coatings.
+What trends are emerging in the Sustainability of industrial coatings in 2025?
+Find recent conferences or Patents discussing Scuff-Resistance in coatings.
+
+Search tags/topics - Product, coating, architectural or similar.
+
+Datasources/URLs (https://www.paint.org/ , https://www.coatingsworld.com/ , https://www.pcimag.com/ )"""
+    
+    async def main():
+        try:
+            results = await execute_research_pipeline(USER_QUERY)
+            print("\n\n--- PIPELINE RESULT ---")
+            print("\n## FINAL REPORT (Snippet) ##")
+            print(results['final_report_markdown'][:500] + "...")
+            print("\n## EXTRACTED DATA (Summary) ##")
+            print(json.dumps(results['metadata']['extraction_summary'], indent=2))
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
+    asyncio.run(main())
+
+
+================================================
+File: src/phase1_planner.py
+================================================
+# src/phase1_planner.py
+import base64
+import os
+from datetime import datetime
+from google import genai
+from google.genai import types
+import json
+from src import config # Our configuration loader
+from src import constants
+
+def generate_search_queries(user_input: str) -> dict[str, list[str]]:
+    """
+    Uses the Gemini API to analyze user input and generate a dictionary of
+    targeted Google CSE search queries organized by category using the correct SDK syntax.
+
+    Args:
+        user_input: The full text of the user's request.
+
+    Returns:
+        A dictionary with keys News, Patents, Conference, Legalnews, General,
+        where each value is a list of search query strings.
+        Returns empty lists for each category if generation fails.
+    """
+    print("Phase 1: Generating search queries with Gemini...")
+
+    try:
+        # 1. Instantiate the client using the API key from our config
+        client = genai.Client(api_key=config.GEMINI_API_KEY)
+
+        # Get current date for recency context
+        current_date = datetime.now()
+        current_year = current_date.year
+        current_month = current_date.strftime("%B")
+        
+        # 2. Define the prompt
+        prompt = f"""
+You are a senior market-intelligence analyst specialising in the global
+coatings industry.
+
+CURRENT DATE CONTEXT:
+Today is {current_month} {current_date.day}, {current_year}. When generating queries, prioritize information from {current_year} and the most recent {constants.RECENT_YEARS} years ({current_year - constants.RECENT_YEARS + 1}-{current_year}).
+
+USER REQUEST:
+{user_input}
+
+TASK  
+Generate a JSON dictionary that groups Google Custom Search Engine
+queries into the following buckets:
+
+  • "News"        • "Patents"  
+  • "Conference"  • "Legalnews"  
+  • "General"     (technology & market background)
+
+MANDATORY RULES
+1.  Every query must use **one** `site:` operator that restricts the
+    search to a single domain drawn from the user's allowed list.
+2.  Bias the wording toward **recency** – e.g. "latest", "{current_year}", "recent", "new" –
+    so results fall within the last {constants.RECENT_YEARS} calendar years ({current_year - constants.RECENT_YEARS + 1}-{current_year}).
+3.  Each bucket may contain up to 15 unique queries.
+4.  Vary keywords to capture innovations, regulations, performance
+    testing, sustainability, and scuff-resistance.
+5.  Focus on the most current developments, trends, and announcements.
+6.  Return **only** this JSON object. No prose, no markdown:
+
+{{
+  "News":        [ "...", "..." ],
+  "Patents":     [ "...", "..." ],
+  "Conference":  [ "...", "..." ],
+  "Legalnews":  [ "...", "..." ],
+  "General":     [ "...", "..." ]
+}}
+"""
+        
+        # 3. Structure the request using types.Content and types.Part
+        contents = [
+            types.Content(
+                role="user",
+                parts=[
+                    types.Part(text=prompt),
+                ],
+            ),
+        ]
+        
+        # 4. Create the generation configuration object
+        # This is the correct way to specify safety and response type.
+        generate_content_config = types.GenerateContentConfig(
+            safety_settings=[
+                types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
+                types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
+                types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
+                types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
+            ],
+            response_mime_type="application/json",
+        )
+
+        # 5. Make the API call using the CORRECT method: client.models.generate_content
+        model_name = "gemini-2.5-pro-preview-06-05"
+        response = client.models.generate_content(
+            model=f"models/{model_name}",
+            contents=contents,
+            config=generate_content_config,
+        )
+        
+        # 6. Parse the JSON response
+        raw = response.candidates[0].content.parts[0].text
+        data = json.loads(raw)
+        by_bucket = {k: data.get(k, []) for k in
+                    ["News","Patents","Conference","Legalnews","General"]}
+
+        # Clean the queries in each bucket to remove protocol and 'www' for the site: operator
+        import re
+        cleaned_buckets = {}
+        total_queries = 0
+        
+        for bucket_name, queries in by_bucket.items():
+            if isinstance(queries, list):
+                cleaned_queries = []
+                for q in queries:
+                    # This regex finds the domain part and rebuilds the query
+                    match = re.search(r"site:https?://(?:www\.)?([^/\s]+)", q)
+                    if match:
+                        domain = match.group(1)
+                        # Replace the full url part with just the domain
+                        cleaned_q = re.sub(r"site:https?://(?:www\.)?[^/\s]+", f"site:{domain}", q)
+                        cleaned_queries.append(cleaned_q)
+                    else:
+                        cleaned_queries.append(q) # Append as-is if no match
+                cleaned_buckets[bucket_name] = cleaned_queries
+                total_queries += len(cleaned_queries)
+            else:
+                print(f"Warning: LLM returned '{bucket_name}' but it was not a list. Using empty list.")
+                cleaned_buckets[bucket_name] = []
+
+        print(f"Successfully generated and cleaned {total_queries} search queries across {len(cleaned_buckets)} buckets.")
+        return cleaned_buckets
+
+    except json.JSONDecodeError as e:
+        print(f"Error: Failed to parse JSON from the LLM response. Error: {e}")
+        raw = None
+        try:
+            raw = response.candidates[0].content.parts[0].text
+        except Exception:
+            pass
+        print(f"----- LLM Raw Response -----\n{raw if raw is not None else 'No text in response'}\n--------------------------")
+        return {k: [] for k in ["News","Patents","Conference","Legalnews","General"]}
+    except Exception as e:
+        print(f"An unexpected error occurred during query generation: {e}")
+        return {k: [] for k in ["News","Patents","Conference","Legalnews","General"]}
+
+
+================================================
+File: src/phase2_searcher.py
+================================================
+# src/phase2_searcher.py
+
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+from src import config
+from src.constants import MAX_SEARCH_RESULTS, MAX_SEARCH_WORKERS
+from src import constants
+from datetime import date
+import threading
+import time
+import collections
+
+# Thread-local storage for service instances
+_thread_local = threading.local()
+
+def _get_service():
+    """
+    Get or create a thread-local Google Custom Search service instance.
+    This ensures each thread has its own service object.
+    """
+    if not hasattr(_thread_local, 'service'):
+        _thread_local.service = build(
+            "customsearch", "v1", developerKey=config.GOOGLE_API_KEY
+        )
+    return _thread_local.service
+
+def _execute_single_query(query_info: tuple) -> tuple:
+    """
+    Execute a single search query and return results.
+    
+    Args:
+        query_info: Tuple of (query_index, bucket, query_string, num_results)
+    
+    Returns:
+        Tuple of (query_index, bucket, query_string, urls_list, error_message)
+    """
+    query_index, bucket, query, num_results = query_info
+    urls = []
+    error_msg = None
+    
+    try:
+        service = _get_service()
+        year_from = date.today().year - constants.RECENT_YEARS
+        sort_range = f"date:r:{year_from}0101:{date.today().strftime('%Y%m%d')}"
+
+        # First attempt
+        try:
+            res = service.cse().list(
+                q=query,
+                cx=config.GOOGLE_CSE_ID,
+                num=num_results,
+                sort=sort_range
+            ).execute()
+        except HttpError as http_err:
+                if http_err.resp.status == 400:
+                    # Retry without sort param if 400 error
+                    res = service.cse().list(
+                        q=query,
+                        cx=config.GOOGLE_CSE_ID,
+                        num=num_results
+                    ).execute()
+                elif http_err.resp.status == 503:
+                    print(f"    -> 503 error for query '{query}', retrying once...")
+                    time.sleep(1)  # Brief pause before retry
+                    res = service.cse().list(
+                        q=query,
+                        cx=config.GOOGLE_CSE_ID,
+                        num=num_results,
+                        sort=sort_range
+                    ).execute()
+                else:
+                    # Re-raise other HTTP errors
+                    raise http_err
+        
+        # Extract the 'link' from each search item
+        if 'items' in res:
+            urls = [item['link'] for item in res['items']]
+        
+    except Exception as e:
+        error_msg = str(e)
+    
+    # Tag each URL with its bucket
+    tagged = [(link, bucket) for link in urls]
+    
+    return query_index, bucket, query, tagged, error_msg
+
+def execute_cse_searches(
+    queries_by_type: dict[str, list[str]],
+    num_results: int = MAX_SEARCH_RESULTS,
+    max_workers: int = MAX_SEARCH_WORKERS
+) -> list[tuple[str, str]]:      # (url, guessed_type)
+    """
+    Executes bucketed searches using Google Custom Search Engine (CSE) API in parallel.
+
+    Args:
+        queries_by_type: A dictionary of search query strings organized by type/bucket.
+        num_results: The number of results to fetch for each query.
+        max_workers: Maximum number of parallel threads for search execution.
+
+    Returns:
+        A list of unique (URL, bucket_type) tuples.
+    """
+    # Flatten queries for thread pool execution
+    flat = [(bucket, q) for bucket, lst in queries_by_type.items() for q in lst]
+    
+    print(f"\nPhase 2: Executing {len(flat)} searches with Google CSE (parallel with {max_workers} workers)...")
+    
+    # Validate that we can build a service first
+    try:
+        # Test service creation
+        test_service = build("customsearch", "v1", developerKey=config.GOOGLE_API_KEY)
+    except Exception as e:
+        print(f"FATAL: Could not build Google Search client. Error: {e}")
+        return []
+
+    all_tagged_urls: dict[str, set[str]] = collections.defaultdict(set)
+    
+    # Prepare query information for parallel execution
+    query_infos = [(i, bucket, query, num_results) for i, (bucket, query) in enumerate(flat)]
+    
+    # Execute searches in parallel
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all queries
+        future_to_query = {
+            executor.submit(_execute_single_query, query_info): query_info 
+            for query_info in query_infos
+        }
+        
+        # Process completed queries as they finish
+        for future in as_completed(future_to_query):
+            query_info = future_to_query[future]
+            query_index, bucket, query, tagged_urls, error_msg = future.result()
+            
+            print(f"  - Completed ({query_index + 1}/{len(flat)}): \"{query}\" [{bucket}]")
+            
+            if error_msg:
+                print(f"    -> Error: {error_msg}")
+            elif tagged_urls:
+                for link, bucket in tagged_urls:
+                    all_tagged_urls[bucket].add(link)
+                print(f"    -> Found {len(tagged_urls)} URLs")
+            else:
+                print(f"    -> No results found")
+
+    # flatten
+    unique_tagged_urls = [(u, b) for b, urls in all_tagged_urls.items() for u in urls]
+    print(f"Successfully collected {len(unique_tagged_urls)} unique tagged URLs from parallel execution.")
+    return unique_tagged_urls
+
+
+================================================
+File: src/phase3_intermediate_synthesizer.py
+================================================
+# src/phase3_intermediate_synthesizer.py
+
+import os
+import re
+import datetime
+from datetime import date
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List, Dict, Tuple
+from google import genai
+from google.genai import types
+from src import config
+from src import constants
+import hashlib
+
+def synthesize_intermediate_report(
+    original_user_query: str,
+    urls_batch: list[str],
+    batch_index: int = 0,
+    output_dir: str = "reports/intermediate_reports"
+) -> str:
+    """
+    Generates a focused Markdown sub-report for a given URL batch using Gemini's UrlContext.
+    """
+    if not urls_batch:
+        print(f"    - Batch {batch_index}: No URLs provided — skipping.")
+        return ""
+
+    print(f"    - Batch {batch_index}: Synthesizing {len(urls_batch)} URLs...")
+
+    client = genai.Client(api_key=config.GEMINI_API_KEY)
+
+    # Get current date for context
+    current_date = date.today()
+    current_year = current_date.year
+    target_years = f"{current_year - constants.RECENT_YEARS + 1}-{current_year}"
+
+    system_instruction = (
+        f"You are a senior market intelligence analyst specializing in the global coatings industry. "
+        f"Today is {current_date.strftime('%B %d, %Y')}.\n\n"
+        
+        "**ANALYSIS PRIORITIES:**\n"
+        f"• Focus on information from {target_years} (last {constants.RECENT_YEARS} years)\n"
+        "• Prioritize quantitative data, market figures, and technical specifications\n"
+        "• Highlight breakthrough innovations, regulatory changes, and sustainability developments\n"
+        "• Identify emerging trends and competitive dynamics\n\n"
+        
+        "**CONTENT REQUIREMENTS:**\n"
+        "Work exclusively from the provided URLs. Synthesize information into a structured report with:\n\n"
+        
+        "1. **Executive Summary** (2-3 sentences highlighting the most critical insights)\n"
+        "2. **Key Technical Findings**\n"
+        "   - Performance data, test results, specifications\n"
+        "   - New formulations, technologies, or processes\n"
+        "   - Comparative analysis where applicable\n\n"
+        
+        "3. **Market Intelligence**\n"
+        "   - Market size, growth rates, forecasts\n"
+        "   - Competitive landscape changes\n"
+        "   - Customer demand patterns and preferences\n\n"
+        
+        "4. **Regulatory & Sustainability Context**\n"
+        "   - New regulations, compliance requirements\n"
+        "   - Environmental impact assessments\n"
+        "   - Sustainability initiatives and green technology adoption\n\n"
+        
+        "5. **Emerging Trends & Future Outlook**\n"
+        "   - R&D developments and pipeline innovations\n"
+        "   - Industry partnerships and acquisitions\n"
+        "   - Market disruptions and opportunities\n\n"
+        
+        "**QUALITY STANDARDS:**\n"
+        "• Be specific and quantitative - include numbers, percentages, dates\n"
+        "• When sources conflict, note the discrepancy and cite both\n"
+        "• Distinguish between confirmed facts and industry speculation\n"
+        "• Use bullet points for clarity and scanability\n"
+        "• Maintain professional, analytical tone throughout\n\n"
+        
+        "**CITATION FORMAT:**\n"
+        "Use inline numeric citations [1], [2] in the order URLs are provided. "
+        "Do NOT add a reference section - citations will be mapped externally.\n\n"
+        
+        "**OUTPUT:** Deliver a concise, actionable Markdown report that enables strategic decision-making."
+    )
+
+    # Combine system instruction with user instruction since Gemini only accepts "user" and "model" roles
+    combined_instruction = (
+        f"{system_instruction}\n\n"
+        f"**RESEARCH QUERY:** {original_user_query}\n\n"
+        f"**SOURCE URLS (Batch {batch_index}):**\n" +
+        "\n".join(f"{i+1}. {url}" for i, url in enumerate(urls_batch)) +
+        "\n\n**TASK:** Analyze these sources and generate a comprehensive market intelligence sub-report following the structure above."
+    )
+
+    contents = [
+        types.Content(role="user", parts=[types.Part(text=combined_instruction)])
+    ]
+
+    tools = [types.Tool(url_context=types.UrlContext())]
+    config_obj = types.GenerateContentConfig(
+        tools=tools,
+        safety_settings=[
+            types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_MEDIUM_AND_ABOVE"),
+            types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_MEDIUM_AND_ABOVE"),
+            types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_MEDIUM_AND_ABOVE"),
+            types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_MEDIUM_AND_ABOVE"),
+        ],
+        response_modalities=["TEXT"],
+    )
+
+    report_fragments = []
+    try:
+        stream = client.models.generate_content_stream(
+            model="models/gemini-2.5-pro-preview-06-05",
+            contents=contents,
+            config=config_obj,
+        )
+        for chunk in stream:
+            report_fragments.append(chunk.text)
+        intermediate_md = "".join(report_fragments).strip()
+
+        # Save sub-report
+        os.makedirs(output_dir, exist_ok=True)
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_name = hashlib.sha1(original_user_query.encode()).hexdigest()[:16]
+        path = os.path.join(output_dir, f"{ts}_batch{batch_index}_{safe_name}.md")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(f"## Batch {batch_index} Intermediate Report\n\n")
+            f.write(intermediate_md)
+        print(f"    - Batch {batch_index}: sub-report saved → {path}")
+        return intermediate_md
+
+    except Exception as e:
+        err = f"## Batch {batch_index} – Error during synthesis:\n{e}"
+        print(f"    - {err}")
+        return err
+
+
+def synthesize_intermediate_reports_parallel(
+    original_user_query: str,
+    url_batches: List[List[str]],
+    output_dir: str = "reports/intermediate_reports",
+    max_workers: int = None
+) -> List[Tuple[int, str]]:
+    """
+    Generates multiple intermediate reports in parallel for given URL batches using Gemini's UrlContext.
+    
+    Args:
+        original_user_query: The original research query
+        url_batches: List of URL batches to process in parallel
+        output_dir: Directory to save intermediate reports
+        max_workers: Maximum number of parallel workers (defaults to min(len(batches), 8))
+    
+    Returns:
+        List of tuples containing (batch_index, report_content)
+    """
+    if not url_batches:
+        print("No URL batches provided for parallel processing.")
+        return []
+
+    # Calculate optimal number of workers
+    if max_workers is None:
+        max_workers = min(len(url_batches), 8)  # Cap at 8 to avoid overwhelming the API
+    
+    print(f"Starting parallel synthesis of {len(url_batches)} batches with {max_workers} workers...")
+    
+    results = []
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all batch processing tasks
+        future_to_batch = {}
+        for batch_index, urls_batch in enumerate(url_batches):
+            if urls_batch:  # Only submit non-empty batches
+                future = executor.submit(
+                    synthesize_intermediate_report,
+                    original_user_query,
+                    urls_batch,
+                    batch_index,
+                    output_dir
+                )
+                future_to_batch[future] = batch_index
+        
+        # Collect results as they complete
+        for future in as_completed(future_to_batch):
+            batch_index = future_to_batch[future]
+            try:
+                report_content = future.result()
+                results.append((batch_index, report_content))
+                print(f"✓ Completed batch {batch_index}")
+            except Exception as e:
+                error_msg = f"## Batch {batch_index} – Error during parallel synthesis:\n{e}"
+                results.append((batch_index, error_msg))
+                print(f"✗ Failed batch {batch_index}: {e}")
+    
+    # Sort results by batch index to maintain order
+    results.sort(key=lambda x: x[0])
+    
+    print(f"✓ Parallel synthesis completed: {len(results)} batches processed")
+    return results
+
+
+def synthesize_all_intermediate_reports(
+    original_user_query: str,
+    url_batches: List[List[str]],
+    output_dir: str = "reports/intermediate_reports",
+    use_parallel: bool = True,
+    max_workers: int = None
+) -> List[str]:
+    """
+    Convenience function to synthesize all intermediate reports either in parallel or sequentially.
+    
+    Args:
+        original_user_query: The original research query
+        url_batches: List of URL batches to process
+        output_dir: Directory to save intermediate reports
+        use_parallel: Whether to use parallel processing (default: True)
+        max_workers: Maximum number of parallel workers (only used if use_parallel=True)
+    
+    Returns:
+        List of report contents in batch order
+    """
+    if use_parallel:
+        results = synthesize_intermediate_reports_parallel(
+            original_user_query, url_batches, output_dir, max_workers
+        )
+        # Extract just the report contents in order
+        return [report_content for _, report_content in results]
+    else:
+        # Sequential processing (original behavior)
+        reports = []
+        for batch_index, urls_batch in enumerate(url_batches):
+            report = synthesize_intermediate_report(
+                original_user_query, urls_batch, batch_index, output_dir
+            )
+            reports.append(report)
+        return reports
+
+
+
+================================================
+File: src/phase4_extractor.py
+================================================
+#!/usr/bin/env python3
+import sys
+import os
+# Ensure project root is on PYTHONPATH for script execution
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+import asyncio
+import json
+import datetime
+from datetime import date
+import re
+from google import genai
+from google.genai import types
+from src import config
+from src.constants import MAX_GEMINI_PARALLEL, EXTRACT_BATCH_SIZE
+from src import constants
+from dateutil import parser as dtparse
+
+def _is_recent(date_str: str | None) -> bool:
+    """
+    True ⇢ item year >= (today - RECENT_YEARS)  • False otherwise
+    """
+    if not date_str:
+        return False
+    try:
+        yr = dtparse.parse(date_str, fuzzy=True).year
+        return yr >= date.today().year - constants.RECENT_YEARS
+    except (dtparse.ParserError, TypeError):
+        return False
+
+# --- New: guarantee every category key exists  ------------------
+EXPECTED_CATEGORIES = ["News", "Patents", "Conference", "Legalnews", "Other"]
+
+def _pad_categories(cat_dict: dict) -> dict:
+    """Return a dict that has every required category, even if empty."""
+    return {k: list(cat_dict.get(k, [])) for k in EXPECTED_CATEGORIES}
+# ----------------------------------------------------------------
+
+async def extract_data_from_single_url(
+    url: str,
+    client: genai.Client,
+    semaphore: asyncio.Semaphore
+) -> list[dict]:
+    """
+    Uses Gemini to extract structured items (news, Patents, conferences, Legalnews) from a URL.
+    Throttles concurrency via semaphore. Returns parsed list of item dicts.
+    """
+    async with semaphore:
+        print(f"    - Extracting from: {url}")
+        try:
+            # Get current date for context
+            current_date = date.today()
+            current_year = current_date.year
+            target_years = f"{current_year - constants.RECENT_YEARS + 1}-{current_year}"
+            
+            instruction = (
+                f"You are a data extraction specialist for the global coatings industry. "
+                f"Today is {current_date.strftime('%B %d, %Y')}.\n\n"
+                
+                f"**TARGET URL:** {url}\n\n"
+                
+                "**EXTRACTION TASK:**\n"
+                "Extract ONLY ENGLISH-language items from the above URL that fall into these categories:\n"
+                "• **News** - Industry news, company announcements, market updates\n"
+                "• **Patents** - Patent applications, grants, IP developments\n"
+                "• **Conference** - Industry events, conferences, presentations, webinars\n"
+                "• **Legalnews** - Regulatory updates, compliance news, legal developments\n\n"
+                
+                "**TEMPORAL FILTER:**\n"
+                f"Include ONLY items published from {target_years} (last {constants.RECENT_YEARS} years).\n"
+                "Exclude anything older than this timeframe.\n\n"
+                
+                "**FIELD REQUIREMENTS:**\n"
+                "For each qualifying item, extract exactly these 5 fields:\n\n"
+                
+                "1. **type** - One of: 'News', 'Patents', 'Conference', 'Legalnews'\n"
+                "   - Use the most appropriate category based on content\n"
+                "   - When uncertain, prioritize based on primary focus\n\n"
+                
+                "2. **title** - Clear, descriptive headline (50-100 characters)\n"
+                "   - Use original title if available, otherwise create concise summary title\n"
+                "   - Focus on coatings-relevant aspects\n\n"
+                
+                "3. **summary** - Comprehensive summary (100-300 words)\n"
+                "   - Include key technical details, market impact, company names\n"
+                "   - Quantify when possible (market size, percentages, dates)\n"
+                "   - Highlight coatings industry relevance\n\n"
+                
+                "4. **date** - Publication date in ISO format (YYYY-MM-DD)\n"
+                "   - Use exact publication date if available\n"
+                "   - If only month/year available, use first day of month\n"
+                "   - Skip items without determinable date\n\n"
+                
+                "5. **source_url** - The exact URL being analyzed\n"
+                f"   - Use: {url}\n\n"
+                
+                "**QUALITY STANDARDS:**\n"
+                "• Focus on items directly relevant to coatings, paints, adhesives, sealants\n"
+                "• Prioritize items with quantitative data or specific technical details\n"
+                "• Exclude generic business news unless coatings-specific\n"
+                "• Ensure summaries are substantive and informative\n"
+                "• Verify dates meet the temporal filter requirements\n\n"
+                
+                "**OUTPUT FORMAT:**\n"
+                "Return a valid JSON array. Each object must have exactly the 5 fields above.\n"
+                "Return [] (empty array) if no qualifying items are found.\n"
+                "Example structure:\n"
+                "[\n"
+                '  {\n'
+                '    "type": "News",\n'
+                '    "title": "New Anti-Corrosion Coating Technology...",\n'
+                '    "summary": "Company X announced a breakthrough...",\n'
+                '    "date": "2024-03-15",\n'
+                f'    "source_url": "{url}"\n'
+                '  }\n'
+                "]"
+            )
+
+            contents = [
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part(text=instruction)
+                    ],
+                )
+            ]
+            tools = [types.Tool(url_context=types.UrlContext())]
+            config_obj = types.GenerateContentConfig(
+                tools=tools,
+                response_modalities=["TEXT"],
+                safety_settings=[
+                    types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
+                    types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
+                    types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
+                    types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
+                ],
+            )
+            response = await client.aio.models.generate_content(
+                model="gemini-2.5-pro-preview-06-05",
+                contents=contents,
+                config=config_obj,
+            )
+            
+            if not response.candidates or not response.candidates[0].content or not response.candidates[0].content.parts:
+                print(f"      → No content part in Gemini response for: {url}")
+                return []
+                
+            text_output = response.candidates[0].content.parts[0].text.strip()
+            # Extract the JSON array substring
+            match = re.search(r"\[.*\]", text_output, re.S)
+            if not match:
+                print(f"      → No JSON array in response for: {url}\n        Response: {text_output[:100]}...")
+                return []
+            items = json.loads(match.group(0))
+            return items if isinstance(items, list) else []
+
+        except json.JSONDecodeError as e:
+            print(f"      → JSONDecodeError for URL {url}: {e}")
+            return []
+        except Exception as e:
+            print(f"      → Error processing {url}: {e}")
+            return []
+
+async def run_structured_extraction(
+    urls: list[str],
+    original_user_query: str,
+    url2tag: dict[str,str],
+    output_dir: str = "extractions"
+) -> dict:
+    """
+    Parallel extraction with concurrency control using batching.
+    Processes all URLs in batches to respect API limits.
+
+    Args:
+      urls: List of URLs to extract from (all processed in batches).
+      original_user_query: Query string for metadata.
+      url2tag: Dictionary mapping URLs to their bucket types.
+      output_dir: Directory to save structured JSON.
+    Returns:
+      Categorized dict of extracted items.
+    """
+    print(f"\nPhase 4: Extracting structured data from {len(urls)} URLs in batches...")
+    os.makedirs(output_dir, exist_ok=True)
+    
+    semaphore = asyncio.Semaphore(MAX_GEMINI_PARALLEL)
+
+    BATCH = EXTRACT_BATCH_SIZE
+    batches = [urls[i:i+BATCH] for i in range(0, len(urls), BATCH)]
+    
+    client = genai.Client(api_key=config.GEMINI_API_KEY)
+    categorized = {k: [] for k in EXPECTED_CATEGORIES}
+    total_items = 0
+    
+    # Process each batch
+    for batch_idx, batch_urls in enumerate(batches):
+        print(f"  Processing batch {batch_idx + 1}/{len(batches)} ({len(batch_urls)} URLs)...")
+        
+        # Launch all tasks for this batch
+        tasks = [
+            asyncio.create_task(extract_data_from_single_url(u, client, semaphore))
+            for u in batch_urls
+        ]
+
+        # Collect results as each finishes (parallel)
+        for completed in asyncio.as_completed(tasks):
+            items = await completed
+            for item in items:
+                if not _is_recent(item.get("date")):
+                    # silently drop anything older than RECENT_YEARS
+                    continue
+                # When normalising each item - use url2tag for type guessing
+                item_type = (item.get("type") or url2tag.get(item.get("source_url"), "Other")) or "Other"
+                item["type"] = item_type
+                
+                t = item.get("type", "Other")
+                categorized.setdefault(t if t in EXPECTED_CATEGORIES else "Other", categorized["Other"]).append(item)
+                total_items += 1
+
+    # Prepare metadata and write output
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_title = re.sub(r'\W+', '_', (original_user_query or '')[:50]) or 'structured_extraction'
+    filename = f"{timestamp}_{safe_title}.json"
+    filepath = os.path.join(output_dir, filename)
+
+    categorized = _pad_categories(categorized)
+
+    urls_processed = len(urls)
+    metadata = {
+        "timestamp": timestamp,
+        "original_query": original_user_query,
+        "urls_processed": urls_processed,
+        "total_items_extracted": total_items,
+        "extraction_summary": {cat: len(lst) for cat, lst in categorized.items()}
+    }
+    output = {"metadata": metadata, "extracted_data": categorized, "processed_urls": urls}
+
+    with open(filepath, 'w', encoding='utf-8') as f:
+        json.dump(output, f, indent=2, ensure_ascii=False)
+
+    print(f"✅ Structured extraction saved to {filepath}")
+    print(f"📊 {total_items} items extracted:")
+    for cat, lst in categorized.items():
+        if lst:
+            print(f"   - {cat}: {len(lst)}")
+
+    return output
+
+if __name__ == '__main__':
+    sample_urls = [
+        "https://www.coatingsworld.com/issues/2025-01-01/view_features/renovations-diy-drive-growth-in-architectural-coatings-market/",
+        "https://www.paint.org/wp-content/uploads/dlm_uploads/2020/04/2020-ACA-Sustainability-Report-1.pdf"
+    ]
+    sample_url2tag = {url: "News" for url in sample_urls}  # Sample mapping
+    extracted = asyncio.run(run_structured_extraction(sample_urls, 'Test Extraction', sample_url2tag))
+    print("\nFinal extracted data:")
+    print(json.dumps(extracted, indent=2))
+
+
+
+================================================
+File: src/phase5_final_synthesizer.py
+================================================
+# src/phase5_final_synthesizer.py
+
+import os
+import re
+import datetime
+from datetime import date
+from google import genai
+from google.genai import types
+from src import config
+from src import constants
+import hashlib
+
+def synthesize_final_report(
+    original_user_query: str,
+    intermediate_reports_text: list[str],
+    all_original_urls: list[str],
+    output_dir: str = "reports"
+) -> str:
+    """
+    Consolidates intermediate sub-reports into a comprehensive Markdown report.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    print(f"\nPhase 5: Generating final report from {len(intermediate_reports_text)} intermediate documents...")
+
+    if not intermediate_reports_text:
+        return _create_fallback_report(original_user_query, output_dir, "No intermediate reports available")
+
+    formatted_content = _format_intermediate_reports(intermediate_reports_text)
+    if len(formatted_content) > 100_000:
+        print("    - Warning: content truncated for context limit")
+        formatted_content = formatted_content[:100_000] + "\n\n[Content truncated due to length...]"
+
+    client = genai.Client(api_key=config.GEMINI_API_KEY)
+
+    # Get current date for context
+    current_date = date.today()
+    current_year = current_date.year
+    target_years = f"{current_year - constants.RECENT_YEARS + 1}-{current_year}"
+
+    system_instruction = (
+        f"You are the Chief Market Intelligence Officer for a global coatings industry consultancy. "
+        f"Today is {current_date.strftime('%B %d, %Y')}.\n\n"
+        
+        "**EXECUTIVE BRIEFING MANDATE:**\n"
+        "Synthesize multiple intermediate research reports into a comprehensive, C-suite ready "
+        "market intelligence brief that enables strategic decision-making in the coatings industry.\n\n"
+        
+        "**SOURCE MATERIAL CONTEXT:**\n"
+        f"• All data sourced from {target_years} publications (last {constants.RECENT_YEARS} years)\n"
+        "• Multiple intermediate reports have been pre-analyzed from primary industry sources\n"
+        "• Eliminate redundancy and synthesize conflicting information with appropriate context\n"
+        "• Do NOT fabricate facts - work exclusively from provided material\n\n"
+        
+        "**REPORT STRUCTURE & REQUIREMENTS:**\n\n"
+        
+        "1. **Executive Summary** (200-250 words)\n"
+        "   - 2-3 key strategic insights that matter most to leadership\n"
+        "   - Critical market dynamics affecting competitive positioning\n"
+        "   - Most significant opportunities and threats identified\n"
+        "   - Bottom-line impact implications\n\n"
+        
+        "2. **Market Overview**\n"
+        "   - Current market size, growth trajectories, and forecasts\n"
+        "   - Geographic and segment performance variations\n"
+        "   - Demand drivers and market evolution patterns\n"
+        "   - Economic and industry-specific influences\n\n"
+        
+        "3. **Key Players & Competitive Dynamics**\n"
+        "   - Major player strategies, market share movements\n"
+        "   - Mergers, acquisitions, partnerships, and joint ventures\n"
+        "   - New market entrants and disruptive competitors\n"
+        "   - Competitive positioning and differentiation strategies\n\n"
+        
+        "4. **Technology & Innovation Landscape**\n"
+        "   - Breakthrough technologies and R&D developments\n"
+        "   - Patent activity and intellectual property trends\n"
+        "   - Emerging formulations, materials, and processes\n"
+        "   - Digital transformation and Industry 4.0 adoption\n\n"
+        
+        "5. **Regulatory & Sustainability Imperatives**\n"
+        "   - New regulations and compliance requirements affecting the industry\n"
+        "   - Environmental and safety standard evolution\n"
+        "   - Sustainability initiatives and green technology adoption\n"
+        "   - ESG considerations and stakeholder expectations\n\n"
+        
+        "6. **Market Challenges & Strategic Opportunities**\n"
+        "   - Supply chain disruptions and raw material constraints\n"
+        "   - Technology gaps and unmet market needs\n"
+        "   - Regulatory compliance challenges and competitive advantages\n"
+        "   - Emerging market opportunities and growth vectors\n\n"
+        
+        "7. **Strategic Recommendations & Forward Outlook**\n"
+        "   - Specific, actionable recommendations for market participants\n"
+        "   - Investment priorities and resource allocation guidance\n"
+        "   - Risk mitigation strategies for identified threats\n"
+        "   - Medium-term market outlook and key success factors\n\n"
+        
+        "**EXECUTIVE COMMUNICATION STANDARDS:**\n"
+        "• Write for C-suite executives with limited time - prioritize high-impact insights\n"
+        "• Quantify whenever possible - include market figures, percentages, timelines\n"
+        "• Use clear sub-headings and bullet points for rapid comprehension\n"
+        "• Maintain analytical objectivity while highlighting strategic implications\n"
+        "• Avoid industry jargon that may not be familiar to all executives\n"
+        "• Balance comprehensive coverage with concise, focused delivery\n"
+        "• Distinguish between confirmed trends and emerging possibilities\n\n"
+        
+        "**QUALITY ASSURANCE:**\n"
+        "• Synthesize information logically - don't simply concatenate reports\n"
+        "• Identify and reconcile conflicting information from multiple sources\n"
+        "• Highlight data limitations or gaps where appropriate\n"
+        "• Ensure all claims are substantiated by the source material\n"
+        "• Create coherent narrative flow between sections\n\n"
+        
+        "**REFERENCE HANDLING:**\n"
+        "Do NOT include inline citations or footnotes - a comprehensive reference list "
+        "will be automatically appended after your analysis.\n\n"
+        
+        "**DELIVERABLE:** A polished, professional Markdown report that serves as a "
+        "definitive market intelligence brief for strategic planning and decision-making."
+    )
+
+    # Combine system instruction with user instruction since Gemini only accepts "user" and "model" roles
+    combined_instruction = (
+        f"{system_instruction}\n\n"
+        f"**RESEARCH OBJECTIVE:**\n{original_user_query}\n\n"
+        f"**INTERMEDIATE REPORTS TO SYNTHESIZE ({len(intermediate_reports_text)} parts):**\n"
+        f"{formatted_content}\n\n"
+        "**TASK:** Create a comprehensive, executive-ready market intelligence report that "
+        "addresses the research objective using the provided intermediate analysis."
+    )
+
+    contents = [
+        types.Content(role="user", parts=[types.Part(text=combined_instruction)])
+    ]
+
+    config_obj = types.GenerateContentConfig(
+        tools=[],
+        safety_settings=[
+            types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_MEDIUM_AND_ABOVE"),
+            types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_MEDIUM_AND_ABOVE"),
+            types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_MEDIUM_AND_ABOVE"),
+            types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_MEDIUM_AND_ABOVE"),
+        ],
+        response_modalities=["TEXT"]
+    )
+
+    try:
+        print("    - Calling Gemini for final synthesis...")
+        stream = client.models.generate_content_stream(
+            model="gemini-2.5-pro-preview-06-05",
+            contents=contents,
+            config=config_obj,
+        )
+        final_text = "".join(chunk.text for chunk in stream).strip()
+
+        removed_count = len(all_original_urls)
+        if removed_count < 12:   # keeps report honest if data set is now small
+            final_text = (
+                f"> **Note ·**  After applying the {constants.RECENT_YEARS}-year "
+                "freshness filter only "
+                f"{removed_count} source URLs remained.\n\n"
+            ) + final_text
+
+        final_with_refs = _add_references_section(final_text, all_original_urls)
+        filepath = _save_final_report(final_with_refs, original_user_query, output_dir)
+
+        print(f"✅ Final report saved to {filepath} ({len(final_with_refs):,} chars, {len(all_original_urls)} references)")
+        return filepath
+
+    except Exception as e:
+        print(f"❌ Gemini error: {e}")
+        return _create_fallback_report(original_user_query, output_dir, str(e), intermediate_reports_text)
+
+def _format_intermediate_reports(reports: list[str]) -> str:
+    return "\n\n".join(
+        f"\n\n{'='*60}\nINTERMEDIATE REPORT #{i+1}\n{'='*60}\n\n{r.strip()}"
+        for i, r in enumerate(reports)
+    )
+
+def _add_references_section(report_md: str, urls: list[str]) -> str:
+    if not urls:
+        return report_md + "\n\n---\n\n## References\n\n_No URLs provided._\n"
+    refs = "\n".join(f"{i+1}. {url}" for i, url in enumerate(urls))
+    return report_md + f"\n\n---\n\n## References\n\n*Synthesized from {len(urls)} sources:*\n\n{refs}\n"
+
+def _save_final_report(content: str, query: str, output_dir: str) -> str:
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe = hashlib.sha1(query.encode()).hexdigest()[:16]
+    path = os.path.join(output_dir, f"{ts}_{safe}_FINAL_REPORT.md")
+    with open(path, "w", encoding="utf‑8") as f:
+        f.write(content)
+    return path
+
+def _create_fallback_report(query: str, output_dir: str, reason: str, reports: list[str] = None) -> str:
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe = hashlib.sha1(query.encode()).hexdigest()[:16]
+    path = os.path.join(output_dir, f"{ts}_{safe}_FALLBACK_REPORT.md")
+    content = f"# Report: {query}\n\n**Status:** Incomplete\n\n**Reason:** {reason}\n\n"
+    if reports:
+        content += "## Intermediate Reports\n\n" + "\n\n".join(f"### Report #{i+1}\n{r}" for i, r in enumerate(reports))
+    with open(path, "w", encoding="utf‑8") as f:
+        f.write(content)
+    return path
+
+
+
+================================================
+File: src/rag_uploader.py
+================================================
+# src/rag_uploader.py
+"""
+RAG Uploader Module for Market Research Intelligence
+
+This module handles the uploading of market research artifacts to a RAG (Retrieval-Augmented Generation) system.
+It creates collections, converts content to PDF format, uploads documents, and manages chat contexts.
+
+Key Features:
+- Collection creation with custom system prompts
+- PDF conversion for all document types
+- Document upload with proper metadata
+- Chat context management for queries
+- Preprocessing instructions setup
+- Parallel document uploads for improved performance
+"""
+
+import requests
+import json
+import time
+import tempfile
+import os
+from io import BytesIO
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib.enums import TA_LEFT
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+from src import config
+
+# =============================================================================
+# GLOBAL VARIABLES
+# =============================================================================
+
+# NOTE: Chat context management has been moved to the database.
+# The query_rag_collection function is now stateless.
+
+# Thread lock for thread-safe operations
+upload_lock = threading.Lock()
+
+# =============================================================================
+# UTILITY FUNCTIONS
+# =============================================================================
+
+def _convert_to_pdf(json_data: dict, document_name: str) -> str:
+    """
+    Convert JSON data to a formatted PDF file and return the file path.
+
+    Args:
+        json_data (dict): The data to convert to PDF
+        document_name (str): Name for the document (used in title and filename)
+
+    Returns:
+        str: Path to the generated PDF file
+    """
+    # Create a temporary file
+    temp_fd, temp_path = tempfile.mkstemp(suffix='.pdf', prefix=f"{document_name}_")
+    os.close(temp_fd)  # Close the file descriptor
+
+    # Create PDF document
+    doc = SimpleDocTemplate(temp_path, pagesize=letter, topMargin=1*inch)
+    styles = getSampleStyleSheet()
+
+    # Custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=16,
+        spaceAfter=12,
+        alignment=TA_LEFT
+    )
+
+    content_style = ParagraphStyle(
+        'CustomContent',
+        parent=styles['Normal'],
+        fontSize=10,
+        spaceAfter=6,
+        alignment=TA_LEFT
+    )
+
+    # Build PDF content
+    story = []
+
+    # Add title
+    story.append(Paragraph(f"Document: {document_name}", title_style))
+    story.append(Spacer(1, 12))
+
+    # Process the JSON data
+    if 'content' in json_data:
+        # For reports with content field
+        content = json_data['content']
+        # Split content into paragraphs for better formatting
+        paragraphs = content.split('\n\n') if content else ['No content available']
+
+        for para in paragraphs:
+            if para.strip():
+                # Escape HTML characters and handle markdown-like formatting
+                clean_para = para.replace('&', '&').replace('<', '<').replace('>', '>')
+
+                # Handle markdown bold formatting more carefully
+                import re
+                # Replace **text** with <b>text</b>
+                clean_para = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', clean_para)
+                # Replace single *text* with <i>text</i> (but not if it's part of **)
+                clean_para = re.sub(r'(?<!\*)\*([^*]+?)\*(?!\*)', r'<i>\1</i>', clean_para)
+
+                story.append(Paragraph(clean_para, content_style))
+                story.append(Spacer(1, 6))
+    elif 'items' in json_data:
+        # For combined structured data with multiple items
+        items = json_data['items']
+        category = json_data.get('category', 'Items')
+
+        story.append(Paragraph(f"Category: {category}", title_style))
+        story.append(Spacer(1, 12))
+
+        for i, item in enumerate(items, 1):
+            story.append(Paragraph(f"<b>Item {i}:</b>", content_style))
+            for key, value in item.items():
+                if isinstance(value, str) and value.strip():
+                    formatted_key = key.replace('_', ' ').title()
+                    clean_value = value.replace('&', '&').replace('<', '<').replace('>', '>')
+                    story.append(Paragraph(f"<b>{formatted_key}:</b> {clean_value}", content_style))
+            story.append(Spacer(1, 8))
+    else:
+        # For structured data items
+        for key, value in json_data.items():
+            if key in ['title', 'type', 'summary', 'date', 'source_url']:
+                formatted_key = key.replace('_', ' ').title()
+                if isinstance(value, str):
+                    clean_value = value.replace('&', '&').replace('<', '<').replace('>', '>')
+                    story.append(Paragraph(f"<b>{formatted_key}:</b> {clean_value}", content_style))
+                else:
+                    story.append(Paragraph(f"<b>{formatted_key}:</b> {str(value)}", content_style))
+                story.append(Spacer(1, 4))
+
+    # Add metadata section
+    story.append(Spacer(1, 12))
+    story.append(Paragraph("Metadata:", title_style))
+
+    # Add source type and other metadata
+    for key, value in json_data.items():
+        if key not in ['content', 'title', 'type', 'summary', 'date', 'source_url', 'items', 'category']:
+            formatted_key = key.replace('_', ' ').title()
+            clean_value = str(value).replace('&', '&').replace('<', '<').replace('>', '>')
+            story.append(Paragraph(f"<b>{formatted_key}:</b> {clean_value}", content_style))
+
+    # Build the PDF
+    doc.build(story)
+
+    return temp_path
+
+def _combine_structured_data_by_category(extracted_data: dict) -> dict:
+    """
+    Combine structured data items by category into single documents.
+
+    Args:
+        extracted_data (dict): Dictionary with categories and their items
+
+    Returns:
+        dict: Combined documents by category
+    """
+    combined_docs = {}
+
+    for category, items in extracted_data.items():
+        if items:  # Only process categories that have items
+            combined_docs[category.lower()] = {
+                'category': category,
+                'items': items,
+                'source_type': f'combined_{category.lower()}',
+                'item_count': len(items)
+            }
+
+    return combined_docs
+
+# =============================================================================
+# CORE API FUNCTIONS
+# =============================================================================
+
+def _create_rag_collection(collection_name: str, description: str):
+    """
+    Calls the /app/v2/CreateCollection endpoint using the actual API specification.
+
+    Args:
+        collection_name (str): Name for the new collection (without org prefix)
+        description (str): Description of the collection
+
+    Returns:
+        dict: API response
+    """
+    headers = {
+        "X-Api-Token": config.RAG_API_TOKEN,
+        "x-orgId": config.RAG_API_ORG_ID,
+        "X-Api-Org": config.RAG_API_ORG_ID
+    }
+    data = {
+        "collectionName": collection_name,
+        "collectionDescription": description,
+        "jsonFields": "",  # Empty as shown in example
+        "usertype": config.RAG_API_USER_TYPE,
+        "base_language": "en",
+        "source": "files",
+        "model": "gpt-4o-mini",
+        "response_language": "en"
+    }
+    url = f"{config.RAG_API_BASE_URL}/app/v2/CreateCollection"
+
+    response = requests.post(url, headers=headers, data=data)
+    if response.status_code != 200:
+        print(f"❌ CreateCollection failed. Status: {response.status_code}")
+        print(f"❌ Response: {response.text}")
+    response.raise_for_status() # Raise an exception for HTTP errors
+    return response.json()
+
+def _update_system_prompt(collection_name: str):
+    """
+    Calls the /app/v2/UpdateSystemPrompt endpoint to set a custom system prompt for the collection.
+
+    Args:
+        collection_name (str): Name of the collection to update (with org prefix)
+
+    Returns:
+        dict: API response
+    """
+    headers = {
+        "X-Api-Token": config.RAG_API_TOKEN,
+        "x-orgId": config.RAG_API_ORG_ID,
+        "X-Api-Org": config.RAG_API_ORG_ID
+    }
+
+    # Create a comprehensive system prompt for market research intelligence
+    system_prompt = """You are an expert Market Research Intelligence Assistant specialized in analyzing research data, reports, and market insights. Your role is to:
+
+1. **Comprehensive Analysis**: Provide detailed analysis of market trends, competitive landscapes, and business opportunities from the uploaded research documents.
+
+2. **Data Synthesis**: Extract and synthesize key insights from multiple sources including news articles, patents, conference proceedings, and industry reports.
+
+3. **Strategic Recommendations**: Offer actionable recommendations based on market intelligence findings.
+
+4. **Citation & Sources**: Always provide specific citations from the uploaded documents with page numbers and source links when available.
+
+5. **Structured Responses**: Organize your responses with clear headings, bullet points, and structured formatting for easy consumption.
+
+6. **Context Awareness**: Maintain awareness of the original research query and tailor responses to be relevant to the specific market research objectives.
+
+When answering questions:
+- Start with a brief executive summary
+- Provide detailed analysis with supporting evidence
+- Include relevant data points, trends, and insights
+- Conclude with actionable recommendations
+- Always cite your sources from the uploaded documents
+
+Your responses should be professional, analytical, and valuable for business decision-making."""
+
+    data = {
+        "new_prompt": system_prompt,
+        "partition_name": collection_name,
+        "username": "mbhimrajka@supervity.ai"
+    }
+
+    url = f"{config.RAG_API_BASE_URL}/app/v2/UpdateSystemPrompt"
+
+    response = requests.post(url, headers=headers, data=data)
+    if response.status_code != 200:
+        print(f"❌ UpdateSystemPrompt failed. Status: {response.status_code}")
+        print(f"❌ Response: {response.text}")
+    response.raise_for_status()
+    return response.json()
+
+def _set_preprocess_instructions(collection_name: str):
+    """
+    Calls the /app/v2/PreprocessInstruct endpoint to set preprocessing instructions for the collection.
+
+    Args:
+        collection_name (str): Name of the collection to configure (with org prefix)
+
+    Returns:
+        dict: API response
+    """
+    headers = {
+        "X-Api-Token": config.RAG_API_TOKEN,
+        "x-orgId": config.RAG_API_ORG_ID,
+        "X-Api-Org": config.RAG_API_ORG_ID
+    }
+
+    # Create preprocessing instructions for market research data
+    preprocess_instructions = """Please find below the key preprocessing guidelines for market research intelligence analysis:
+
+1. **Document Structure**: Identify document types (final reports, intermediate reports, news articles, patents, conference papers) and structure the analysis accordingly.
+
+2. **Data Categorization**: Organize information into relevant categories:
+   - Market trends and forecasts
+   - Competitive intelligence
+   - Technological innovations
+   - Regulatory changes
+   - Industry dynamics
+
+3. **Key Information Extraction**: Focus on extracting:
+   - Market size and growth projections
+   - Key players and market share data
+   - Emerging technologies and innovations
+   - Geographic market insights
+   - Regulatory and compliance factors
+   - Investment and funding activities
+
+4. **Source Credibility**: Prioritize information based on source reliability and recency of data.
+
+5. **Cross-Reference Analysis**: Identify patterns and correlations across multiple sources and document types.
+
+6. **Date Sensitivity**: Pay attention to publication dates and ensure temporal relevance of insights.
+
+7. **Quantitative Data**: Extract and highlight numerical data, percentages, market valuations, and statistical information.
+
+8. **Actionable Intelligence**: Focus on information that provides strategic value and business decision support.
+
+9. **Citation Preparation**: Maintain document source information for proper attribution in responses.
+
+10. **Context Preservation**: Maintain the relationship between the original research query and the extracted information."""
+
+    data = {
+        "partition_name": collection_name,
+        "username": "mbhimrajka@supervity.ai",
+        "preprocess_instruct": preprocess_instructions
+    }
+
+    url = f"{config.RAG_API_BASE_URL}/app/v2/PreprocessInstruct"
+
+    response = requests.post(url, headers=headers, data=data)
+    if response.status_code != 200:
+        print(f"❌ PreprocessInstruct failed. Status: {response.status_code}")
+        print(f"❌ Response: {response.text}")
+    response.raise_for_status()
+    return response.json()
+
+def _upload_document(collection_name: str, document_name: str, json_data: dict):
+    """
+    Calls the /app/v2/UploadDocument endpoint using the actual API specification.
+    Converts content to PDF before uploading.
+
+    Args:
+        collection_name (str): Name of the collection to upload to (with org prefix)
+        document_name (str): Name for the document
+        json_data (dict): Data to convert and upload
+
+    Returns:
+        dict: API response with success/failure info
+    """
+    headers = {
+        "X-Api-Token": config.RAG_API_TOKEN,
+        "x-orgId": config.RAG_API_ORG_ID,
+        "X-Api-Org": config.RAG_API_ORG_ID
+    }
+
+    # Convert content to PDF
+    pdf_file_path = _convert_to_pdf(json_data, document_name)
+
+    try:
+        # Upload the PDF file
+        with open(pdf_file_path, 'rb') as pdf_file:
+            files = {
+                'document': (f"{document_name}.pdf", pdf_file, 'application/pdf')
+            }
+            data = {
+                "collectionName": collection_name,
+                "jsonData": "",  # Empty as shown in example
+                "documentName": document_name,
+                "usertype": config.RAG_API_USER_TYPE,
+                "useOCR": "false"
+            }
+
+            url = f"{config.RAG_API_BASE_URL}/app/v2/UploadDocument"
+
+            # Debug: Show file size
+            pdf_file.seek(0, 2)  # Go to end
+            file_size = pdf_file.tell()
+            pdf_file.seek(0)  # Go back to start
+
+            with upload_lock:
+                print(f"   → Uploading PDF: {document_name}.pdf ({file_size:,} bytes)")
+
+            response = requests.post(url, headers=headers, data=data, files=files)
+
+            if response.status_code != 200:
+                with upload_lock:
+                    print(f"   ❌ Upload failed for {document_name}. Status: {response.status_code}")
+                    print(f"   ❌ Response: {response.text}")
+                return {"success": False, "document_name": document_name, "error": response.text}
+
+            with upload_lock:
+                print(f"   ✅ Upload successful: {document_name}")
+            return {"success": True, "document_name": document_name, "response": response.json()}
+
+    except Exception as e:
+        with upload_lock:
+            print(f"   ❌ Upload failed for {document_name}. Error: {e}")
+        return {"success": False, "document_name": document_name, "error": str(e)}
+    finally:
+        # Clean up the temporary PDF file
+        if os.path.exists(pdf_file_path):
+            os.remove(pdf_file_path)
+
+def query_rag_collection(collection_name: str, question: str, current_chat_context: str = "") -> dict:
+    """
+    Calls the /app/v2/QueryDocument endpoint.
+    Manages chat context via passed-in arguments, it is STATELESS.
+
+    Args:
+        collection_name (str): Name of the collection to query
+        question (str): Question to ask the RAG system
+        current_chat_context (str): The conversation history from the database.
+
+    Returns:
+        dict: The full RAG response payload from the API.
+    """
+    config.assert_rag_env()
+    print(f"Querying RAG collection '{collection_name}' with question: '{question}'")
+    print(f"   -> Sending chat context (length: {len(current_chat_context)} chars)")
+
+    headers = {
+        "X-Api-Token": config.RAG_API_TOKEN,
+        "x-orgId": config.RAG_API_ORG_ID,
+        "X-Api-Org": config.RAG_API_ORG_ID
+    }
+    
+    data = {
+        "question": question,
+        "collectionName": collection_name,
+        "jsonData": "",
+        "documentName": "",
+        "usertype": config.RAG_API_USER_TYPE,
+        "chat_context": current_chat_context
+    }
+
+    url = f"{config.RAG_API_BASE_URL}/app/v2/QueryDocument"
+
+    try:
+        response = requests.post(url, headers=headers, data=data)
+        response.raise_for_status()
+        result = response.json()
+        
+        # The function is now stateless. It just returns the result.
+        # The caller is responsible for updating the context.
+        print(f"   -> Received response from RAG API.")
+        return result
+        
+    except requests.exceptions.HTTPError as e:
+        print(f"Error querying RAG. Status: {e.response.status_code}, Body: {e.response.text}")
+        raise e
+
+
+# =============================================================================
+# MAIN ORCHESTRATION FUNCTION
+# =============================================================================
+
+def upload_artifacts_to_rag(job_id: str, artifacts: dict):
+    """
+    Main function to upload research artifacts to the RAG system with parallel uploads.
+
+    This function orchestrates the complete upload process:
+    1. Creates a new collection
+    2. Sets up system prompt and preprocessing instructions
+    3. Uploads final report, intermediate reports, and structured data in parallel
+    4. Initializes chat context for future queries
+
+    Args:
+        job_id (str): Unique identifier for the research job
+        artifacts (dict): Dictionary containing all research artifacts
+
+    Returns:
+        str or None: Collection name if successful, None if failed
+    """
+    try:
+        config.assert_rag_env()
+        print(f"--- Starting RAG Upload for Job ID: {job_id} ---")
+
+        # 1. Create a new collection for this job
+        base_collection_name = f"research_job_{job_id.replace('-', '_')}"
+        collection_description = f"Artifacts for research query: {artifacts['original_query'][:100]}"
+
+        _create_rag_collection(base_collection_name, collection_description)
+        print(f"-> RAG: Created collection '{base_collection_name}'.")
+
+        # 2. For subsequent operations, use the full collection name with org prefix
+        full_collection_name = f"{config.RAG_API_ORG_ID}_{base_collection_name}"
+
+        # 3. Configure collection settings
+        _update_system_prompt(full_collection_name)
+        print(f"-> RAG: Updated system prompt for '{full_collection_name}'.")
+
+        _set_preprocess_instructions(full_collection_name)
+        print(f"-> RAG: Set preprocessing instructions for '{full_collection_name}'.")
+
+        # 4. Prepare all upload tasks
+        upload_tasks = []
+
+        # Add final report to upload tasks
+        upload_tasks.append(("final_report", {
+            "content": artifacts['final_report_markdown'],
+            "source_type": "final_report"
+        }))
+
+        # Add job-specific intermediate reports to upload tasks
+        if 'intermediate_reports' in artifacts and artifacts['intermediate_reports']:
+            for i, intermediate_report in enumerate(artifacts['intermediate_reports']):
+                upload_tasks.append((f"intermediate_report_{i}", {
+                    "content": intermediate_report,
+                    "source_type": "intermediate_report",
+                    "report_index": i
+                }))
+
+        # Combine structured data by category and add to upload tasks
+        extracted_data = artifacts['extracted_data']
+        combined_docs = _combine_structured_data_by_category(extracted_data)
+
+        for category, combined_data in combined_docs.items():
+            upload_tasks.append((f"combined_{category}", combined_data))
+
+        # 5. Execute all uploads in parallel
+        print(f"-> RAG: Starting parallel upload of {len(upload_tasks)} documents...")
+
+        successful_uploads = 0
+        failed_uploads = 0
+
+        with ThreadPoolExecutor(max_workers=5) as executor:  # Limit concurrent uploads
+            # Submit all upload tasks
+            future_to_task = {
+                executor.submit(_upload_document, full_collection_name, task_name, task_data): (task_name, task_data)
+                for task_name, task_data in upload_tasks
+            }
+
+            # Process completed uploads
+            for future in as_completed(future_to_task):
+                task_name, task_data = future_to_task[future]
+                try:
+                    result = future.result()
+                    if result.get("success"):
+                        successful_uploads += 1
+                    else:
+                        failed_uploads += 1
+                        print(f"   ❌ Failed to upload {task_name}: {result.get('error', 'Unknown error')}")
+                except Exception as e:
+                    failed_uploads += 1
+                    print(f"   ❌ Exception during upload of {task_name}: {e}")
+
+        # 6. Chat context is now managed by the database, no initialization needed
+
+        # 7. Summary
+        total_items = len(combined_docs)
+        intermediate_count = len(artifacts.get('intermediate_reports', []))
+
+        print(f"--- RAG Upload Complete ---")
+        print(f"   Collection: '{full_collection_name}'")
+        print(f"   Successful uploads: {successful_uploads}")
+        print(f"   Failed uploads: {failed_uploads}")
+        print(f"   Final report: 1, Intermediate reports: {intermediate_count}, Combined categories: {total_items}")
+        print(f"--- Total documents uploaded: {successful_uploads} ---")
+
+        if failed_uploads > 0:
+            print(f"⚠️  Warning: {failed_uploads} uploads failed")
+
+        return full_collection_name if successful_uploads > 0 else None
+
+    except Exception as e:
+        print(f"❌ RAG Upload Failed for Job ID: {job_id}. Error: {e}")
+        return None
+
+# =============================================================================
+#   🧪 REALISTIC TESTING WITH ACTUAL PIPELINE FILES
+# =============================================================================
+
+def main():
+    """
+    Test the entire RAG pipeline using actual files from the market research pipeline.
+    
+    This function:
+    1. Reads a real final report from the reports/ directory
+    2. Loads job-specific intermediate reports from reports/intermediate_reports/
+    3. Loads real extracted data from extractions/ directory 
+    4. Tests the complete upload and query workflow with realistic data
+    """
+    import json
+    import glob
+    import os
+    from pathlib import Path
+    import re
+    
+    print("🧪 Testing RAG Pipeline with Actual Market Research Files")
+    print("=" * 70)
+    
+    # ─────────────────────────────────────────────────────────────────────────────────────────
+    # 1. Load actual final report from reports directory
+    # ─────────────────────────────────────────────────────────────────────────────────────────
+    
+    reports_dir = Path("reports")
+    final_reports = list(reports_dir.glob("*FINAL_REPORT.md"))
+    
+    if not final_reports:
+        print("❌ No final reports found in reports/ directory")
+        return
+    
+    # Use the most recent final report
+    latest_report = max(final_reports, key=lambda x: x.stat().st_mtime)
+    print(f"📄 Using final report: {latest_report.name}")
+    
+    try:
+        with open(latest_report, 'r', encoding='utf-8') as f:
+            final_report_content = f.read()
+        print(f"   ✓ Loaded final report ({len(final_report_content):,} characters)")
+    except Exception as e:
+        print(f"❌ Error reading final report: {e}")
+        return
+    
+    # ─────────────────────────────────────────────────────────────────────────────────────────
+    # 2. Extract job ID from filename and load job-specific intermediate reports
+    # ─────────────────────────────────────────────────────────────────────────────────────────
+    
+    # Extract UUID from filename (e.g., "20250616_114604_e8ba587e71d8fe26_FINAL_REPORT.md")
+    uuid_match = re.search(r'([a-f0-9]{16})', latest_report.name)
+    if uuid_match:
+        job_uuid = uuid_match.group(1)
+        job_id = f"{job_uuid}-71d8-fe26-1234-123456789abc"  # Extend to full UUID format
+    else:
+        job_id = "test-pipeline-12345678-1234-5678-9abc-123456789def"
+    
+    print(f"🔑 Using Job ID: {job_id}")
+    print(f"🔍 Looking for intermediate reports with UUID: {job_uuid}")
+    
+    # Load only job-specific intermediate reports
+    intermediate_dir = reports_dir / "intermediate_reports"
+    intermediate_files = list(intermediate_dir.glob(f"*{job_uuid}*.md"))  # Filter by job UUID
+    
+    intermediate_reports = []
+    for file_path in intermediate_files:
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                intermediate_reports.append(content)
+            print(f"   ✓ Loaded job-specific intermediate report: {file_path.name}")
+        except Exception as e:
+            print(f"   ⚠️  Failed to load {file_path.name}: {e}")
+    
+    print(f"📊 Loaded {len(intermediate_reports)} job-specific intermediate reports")
+    
+    # ─────────────────────────────────────────────────────────────────────────────────────────
+    # 3. Load actual extracted data from JSON files
+    # ─────────────────────────────────────────────────────────────────────────────────────────
+    
+    extractions_dir = Path("extractions")
+    extraction_files = list(extractions_dir.glob("*.json"))
+    
+    if not extraction_files:
+        print("❌ No extraction files found in extractions/ directory")
+        return
+    
+    # Use the most recent extraction file
+    latest_extraction = max(extraction_files, key=lambda x: x.stat().st_mtime)
+    print(f"📊 Using extraction data: {latest_extraction.name}")
+    
+    try:
+        with open(latest_extraction, 'r', encoding='utf-8') as f:
+            extraction_data = json.load(f)
+        
+        # Validate the structure
+        if 'extracted_data' not in extraction_data:
+            print("❌ Invalid extraction file structure - missing 'extracted_data'")
+            return
+            
+        extracted_items = extraction_data['extracted_data']
+        metadata = extraction_data.get('metadata', {})
+        
+        print(f"   ✓ Loaded extraction data with categories: {list(extracted_items.keys())}")
+        print(f"   ✓ Metadata: {metadata.get('total_items_extracted', 'unknown')} total items")
+        
+        # Show category breakdown
+        for category, items in extracted_items.items():
+            print(f"     - {category}: {len(items)} items")
+        
+    except Exception as e:
+        print(f"❌ Error loading extraction data: {e}")
+        return
+    
+    # ─────────────────────────────────────────────────────────────────────────────────────────
+    # 4. Create realistic artifacts structure
+    # ─────────────────────────────────────────────────────────────────────────────────────────
+    
+    # Get original query from metadata or use a default
+    original_query = metadata.get('original_query', 
+        """Show me the latest innovations in Weatherability of Decorative Coatings.
+What trends are emerging in the Sustainability of industrial coatings in 2025?
+Find recent conferences or Patents discussing Scuff-Resistance in coatings.
+
+Search tags/topics - Product, coating, architectural or similar.""")
+    
+    artifacts = {
+        'original_query': original_query,
+        'final_report_markdown': final_report_content,
+        'intermediate_reports': intermediate_reports,
+        'extracted_data': extracted_items,
+        'metadata': metadata
+    }
+    
+    print(f"\n📦 Artifacts Summary:")
+    print(f"   • Final Report: {len(final_report_content):,} characters")
+    print(f"   • Job-Specific Intermediate Reports: {len(intermediate_reports)} files")
+    print(f"   • Extracted Data Categories: {len(extracted_items)}")
+    for category, items in extracted_items.items():
+        print(f"     - {category}: {len(items)} items → will be combined into 1 document")
+    
+    # ─────────────────────────────────────────────────────────────────────────────────────────
+    # 5. Test the complete upload pipeline
+    # ─────────────────────────────────────────────────────────────────────────────────────────
+    
+    print(f"\n🚀 Starting RAG Upload Pipeline...")
+    collection_name = upload_artifacts_to_rag(job_id, artifacts)
+    
+    if not collection_name:
+        print("❌ RAG upload failed!")
+        return
+    
+    # ─────────────────────────────────────────────────────────────────────────────────────────
+    # 6. Test query functionality with business-relevant questions
+    # ─────────────────────────────────────────────────────────────────────────────────────────
+    
+    test_queries = [
+        "What are the latest innovations in weatherability for decorative coatings?",
+        "What sustainability trends are emerging in industrial coatings for 2025?",
+        "Which companies are leading in scuff-resistant coating technologies?",
+        "What are the key patents and conferences related to coating durability?",
+        "How is the global coatings market projected to grow through 2032?"
+    ]
+    
+    print(f"\n🔍 Testing Query Functionality...")
+    print("-" * 50)
+    
+    for i, query in enumerate(test_queries, 1):
+        print(f"\n{i}. Query: {query}")
+        response = query_rag_collection(collection_name, query)
+        
+        if response:
+            # Truncate long responses for readability
+            response_text = response.get('response', str(response))
+            display_response = response_text[:300] + "..." if len(response_text) > 300 else response_text
+            print(f"   ✓ Response: {display_response}")
+        else:
+            print(f"   ❌ Query failed")
+        
+        # Small delay between queries
+        time.sleep(1)
+    
+    print(f"\n✅ RAG Pipeline Test Complete!")
+    print(f"   Collection: {collection_name}")
+    print(f"   Total Queries: {len(test_queries)}")
+    print("=" * 70)
+
+
+if __name__ == "__main__":
+    main() 
+
+
