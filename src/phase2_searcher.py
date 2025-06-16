@@ -1,122 +1,75 @@
-# src/phase2_searcher.py
+# src/phase2_searcher.py  (fully rewritten)
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-from src import config
-from src.constants import MAX_SEARCH_RESULTS, MAX_SEARCH_WORKERS
-from src import constants
+import asyncio, re, time
+import httpx
 from datetime import date
-import threading
-import time
-import collections
+from src import config, constants
 
-# Thread-local storage for service instances
-_thread_local = threading.local()
+CSE_ENDPOINT = "https://customsearch.googleapis.com/customsearch/v1"
 
-def _get_service():
-    """
-    Get or create a thread-local Google Custom Search service instance.
-    This ensures each thread has its own service object.
-    """
-    if not hasattr(_thread_local, 'service'):
-        _thread_local.service = build(
-            "customsearch", "v1", developerKey=config.GOOGLE_API_KEY
-        )
-    return _thread_local.service
-
-def _execute_single_query(query_info: tuple) -> tuple:
-    """
-    Execute a single search query and return results.
-    Returns:
-        Tuple of (query_index, bucket, query_string, tagged_urls, error_message)
-    """
-    query_index, bucket, query, num_results = query_info
-    urls = []
-    error_msg = None
-    
+async def _single_cse(client: httpx.AsyncClient, query: str, bucket: str,
+                      num_results: int, idx: int) -> list[tuple[str, str]]:
+    """Fire one CSE request, return (url, bucket) pairs."""
+    year_from = date.today().year - constants.RECENT_YEARS
+    params = {
+        "q": query,
+        "cx": config.GOOGLE_CSE_ID,
+        "key": config.GOOGLE_API_KEY,
+        "num": num_results,
+        "sort": f"date:r:{year_from}0101:{date.today():%Y%m%d}",
+    }
     try:
-        service = _get_service()
-        year_from = date.today().year - constants.RECENT_YEARS
-        sort_range = f"date:r:{year_from}0101:{date.today().strftime('%Y%m%d')}"
-
-        # First attempt
-        try:
-            res = service.cse().list(
-                q=query,
-                cx=config.GOOGLE_CSE_ID,
-                num=num_results,
-                sort=sort_range
-            ).execute()
-        except HttpError as http_err:
-                if http_err.resp.status == 400:
-                    # Retry without sort param if 400 error
-                    res = service.cse().list(
-                        q=query,
-                        cx=config.GOOGLE_CSE_ID,
-                        num=num_results
-                    ).execute()
-                elif http_err.resp.status == 503:
-                    time.sleep(1)  # Brief pause before retry
-                    res = service.cse().list(
-                        q=query,
-                        cx=config.GOOGLE_CSE_ID,
-                        num=num_results,
-                        sort=sort_range
-                    ).execute()
-                else:
-                    # Re-raise other HTTP errors
-                    raise http_err
-        
-        # Extract the 'link' from each search item
-        if 'items' in res:
-            urls = [item['link'] for item in res['items']]
-        
+        r = await client.get(CSE_ENDPOINT, params=params, timeout=20)
+        r.raise_for_status()
+        items = r.json().get("items", [])
+        return [(it["link"], bucket) for it in items]
+    except httpx.HTTPStatusError as e:
+        # retry once without the sort parameter on 400
+        if e.response.status_code == 400 and "sort" in params:
+            params.pop("sort", None)
+            r = await client.get(CSE_ENDPOINT, params=params, timeout=20)
+            r.raise_for_status()
+            items = r.json().get("items", [])
+            return [(it["link"], bucket) for it in items]
+        print(f"⚠️  CSE error {e.response.status_code} for query #{idx}: {query[:60]}")
     except Exception as e:
-        error_msg = str(e)
-    
-    # Tag each URL with its bucket
-    tagged = [(link, bucket) for link in urls]
-    
-    # --- The return signature is now shorter ---
-    return query_index, bucket, query, tagged, error_msg
+        print(f"⚠️  {e} on query #{idx}")
+    return []
 
-def execute_cse_searches(
-    queries_by_type: dict[str, list[str]],
-    num_results: int = MAX_SEARCH_RESULTS,
-    max_workers: int = MAX_SEARCH_WORKERS
-) -> list[tuple[str, str]]:
-    flat = [(bucket, q) for bucket, lst in queries_by_type.items() for q in lst]
-    print(f"\nPhase 2: Executing {len(flat)} searches...") # Simplified log
-    
-    # Validate that we can build a service first
-    try:
-        # Test service creation
-        test_service = build("customsearch", "v1", developerKey=config.GOOGLE_API_KEY)
-    except Exception as e:
-        print(f"FATAL: Could not build Google Search client. Error: {e}")
+async def execute_cse_searches(queries_by_type: dict[str, list[str]],
+                               num_results: int = constants.MAX_SEARCH_RESULTS,
+                               max_concurrency: int = constants.MAX_SEARCH_WORKERS
+                               ) -> list[tuple[str, str]]:
+    """
+    Fully asynchronous Google CSE runner.  No thread pools, HTTP/2, 1-RTT.
+    Returns deduped (url, bucket) list.
+    """
+    flat: list[tuple[str, str]] = [
+        (bucket, q) for bucket, lst in queries_by_type.items() for q in lst
+    ]
+    if not flat:
         return []
 
-    all_tagged_urls: dict[str, set[str]] = collections.defaultdict(set)
-    query_infos = [(i, bucket, query, num_results) for i, (bucket, query) in enumerate(flat)]
-    
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_query = {
-            executor.submit(_execute_single_query, query_info): query_info 
-            for query_info in query_infos
-        }
-        
-        for future in as_completed(future_to_query):
-            # --- MODIFIED: process the reverted return value ---
-            _query_index, _bucket, _query, tagged_urls, error_msg = future.result()
-            
-            # --- NO MORE CALLBACK ---
-            if error_msg:
-                print(f"    -> Error processing query: {error_msg}")
-            elif tagged_urls:
-                for link, bucket in tagged_urls:
-                    all_tagged_urls[bucket].add(link)
+    t0 = time.perf_counter()
+    tagset: set[tuple[str, str]] = set()
 
-    unique_tagged_urls = [(u, b) for b, urls in all_tagged_urls.items() for u in urls]
-    print(f"Successfully collected {len(unique_tagged_urls)} unique tagged URLs.")
-    return unique_tagged_urls
+    limits = httpx.Limits(max_connections=max_concurrency, max_keepalive_connections=max_concurrency)
+    async with httpx.AsyncClient(http2=True, limits=limits) as client:
+        sem = asyncio.Semaphore(max_concurrency)
+
+        async def _wrapped(i, bucket, query):
+            async with sem:
+                return await _single_cse(client, query, bucket, num_results, i)
+
+        tasks = [
+            asyncio.create_task(_wrapped(i, bucket, query))
+            for i, (bucket, query) in enumerate(flat)
+        ]
+        for coro in asyncio.as_completed(tasks):
+            for link, bucket in await coro:
+                tagset.add((link, bucket))
+
+    elapsed = time.perf_counter() - t0
+    print(f"✓ Phase 2 – {len(tagset)} unique URLs in {elapsed:0.1f}s "
+          f"({len(flat)} queries, {max_concurrency} concurrency)")
+    return list(tagset)

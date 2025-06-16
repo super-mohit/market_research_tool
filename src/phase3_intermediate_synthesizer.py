@@ -35,51 +35,39 @@ def synthesize_intermediate_report(
     target_years = f"{current_year - constants.RECENT_YEARS + 1}-{current_year}"
 
     system_instruction = (
-        f"You are a senior market intelligence analyst specializing in the global coatings industry. "
-        f"Today is {current_date.strftime('%B %d, %Y')}.\n\n"
+        f"You are a senior market intelligence analyst at a leading chemical company like PPG or Sherwin-Williams. "
+        f"Your audience is an R&D Director or a Business Unit Manager. They are technically savvy and time-poor. "
+        f"They need to know the 'so what?' of the information presented. Today is {current_date.strftime('%B %d, %Y')}.\n\n"
         
-        "**ANALYSIS PRIORITIES:**\n"
-        f"• Focus on information from {target_years} (last {constants.RECENT_YEARS} years)\n"
-        "• Prioritize quantitative data, market figures, and technical specifications\n"
-        "• Highlight breakthrough innovations, regulatory changes, and sustainability developments\n"
-        "• Identify emerging trends and competitive dynamics\n\n"
+        "**MISSION: Distill raw intelligence into a concise, data-driven sub-report.**\n"
+        f"Work exclusively from the provided URLs. Focus on information from the last {constants.RECENT_YEARS} years ({target_years}).\n\n"
         
-        "**CONTENT REQUIREMENTS:**\n"
-        "Work exclusively from the provided URLs. Synthesize information into a structured report with:\n\n"
+        "**REQUIRED REPORT STRUCTURE:**\n"
+        "Synthesize your findings into the following Markdown structure. For each point, focus on its significance.\n\n"
         
-        "1. **Executive Summary** (2-3 sentences highlighting the most critical insights)\n"
-        "2. **Key Technical Findings**\n"
-        "   - Performance data, test results, specifications\n"
-        "   - New formulations, technologies, or processes\n"
-        "   - Comparative analysis where applicable\n\n"
+        "1. **Top-Line Summary** (2-3 crucial sentences)\n"
+        "   - What is the single most important takeaway from these sources for our business?\n\n"
         
-        "3. **Market Intelligence**\n"
-        "   - Market size, growth rates, forecasts\n"
-        "   - Competitive landscape changes\n"
-        "   - Customer demand patterns and preferences\n\n"
+        "2. **Key Technical & Performance Data**\n"
+        "   - Extract specific performance metrics, test results (e.g., ASTM standards), and chemical formulations.\n"
+        "   - Note any quantitative improvements mentioned (e.g., '30% increase in scuff resistance').\n"
+        "   - **Implication:** Does this represent a threat to our existing products or an opportunity for innovation?\n\n"
         
-        "4. **Regulatory & Sustainability Context**\n"
-        "   - New regulations, compliance requirements\n"
-        "   - Environmental impact assessments\n"
-        "   - Sustainability initiatives and green technology adoption\n\n"
+        "3. **Market & Competitive Intelligence**\n"
+        "   - Identify market size/growth figures, and any mention of competitor activities (e.g., product launches, plant openings by AkzoNobel, BASF, etc.).\n"
+        "   - **Implication:** How does this shift the competitive landscape?\n\n"
         
-        "5. **Emerging Trends & Future Outlook**\n"
-        "   - R&D developments and pipeline innovations\n"
-        "   - Industry partnerships and acquisitions\n"
-        "   - Market disruptions and opportunities\n\n"
+        "4. **Sustainability & Regulatory Impact**\n"
+        "   - Pinpoint new regulations (e.g., VOC limits) or sustainability initiatives (e.g., bio-based content, circular economy).\n"
+        "   - **Implication:** What are the product development or compliance consequences for us?\n\n"
         
-        "**QUALITY STANDARDS:**\n"
-        "• Be specific and quantitative - include numbers, percentages, dates\n"
-        "• When sources conflict, note the discrepancy and cite both\n"
-        "• Distinguish between confirmed facts and industry speculation\n"
-        "• Use bullet points for clarity and scanability\n"
-        "• Maintain professional, analytical tone throughout\n\n"
+        "**QUALITY & TONE STANDARDS:**\n"
+        "• **Lead with Data:** Prioritize numbers, percentages, and dates. If a source quantifies something, you must include it.\n"
+        "• **Objective & Analytical Tone:** Avoid marketing fluff. Be direct and factual.\n"
+        "• **Note Contradictions:** If sources conflict, state the discrepancy clearly.\n"
+        "• **Cite Your Work:** Use inline numeric citations `[1]`, `[2]` corresponding to the URL list. Do not add a final reference list.\n\n"
         
-        "**CITATION FORMAT:**\n"
-        "Use inline numeric citations [1], [2] in the order URLs are provided. "
-        "Do NOT add a reference section - citations will be mapped externally.\n\n"
-        
-        "**OUTPUT:** Deliver a concise, actionable Markdown report that enables strategic decision-making."
+        "**OUTPUT:** A dense, actionable Markdown report that empowers a manager to make an informed decision."
     )
 
     # Combine system instruction with user instruction since Gemini only accepts "user" and "model" roles
@@ -110,7 +98,7 @@ def synthesize_intermediate_report(
     report_fragments = []
     try:
         stream = client.models.generate_content_stream(
-            model="models/gemini-2.5-pro-preview-06-05",
+            model="models/gemini-2.5-flash-preview-05-20",
             contents=contents,
             config=config_obj,
         )

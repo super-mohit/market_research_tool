@@ -273,12 +273,17 @@ async def ask_rag_collection(query_request: RAGQueryRequest, db: Session = Depen
         if not job:
             raise HTTPException(status_code=404, detail=f"Collection '{query_request.collection_name}' not associated with any known job.")
 
+        print(f"Processing RAG query for collection: {query_request.collection_name}")
+        print(f"Question: {query_request.question}")
+
         # Pass the current context from the DB
         answer_payload = query_rag_collection(
             collection_name=query_request.collection_name,
             question=query_request.question,
             current_chat_context=job.rag_chat_context # Pass current context
         )
+
+        print(f"RAG API returned: {answer_payload}")
 
         # Update the chat context in the DB
         if answer_payload and 'chat_context' in answer_payload:
@@ -287,18 +292,28 @@ async def ask_rag_collection(query_request: RAGQueryRequest, db: Session = Depen
             job.rag_chat_context += separator + new_fragment
             db.commit()
 
-        return RAGQueryResponse(
+        # Ensure we're returning the correct structure
+        response = RAGQueryResponse(
             collection_name=query_request.collection_name,
             question=query_request.question,
             answer=answer_payload
         )
+        
+        print(f"Returning response: {response.dict()}")
+        return response
+        
     except ValueError as e:
+        print(f"RAG configuration error: {str(e)}")
         raise HTTPException(status_code=400, detail=f"RAG system not properly configured: {str(e)}")
     except requests.exceptions.HTTPError as e:
         status_code = e.response.status_code if e.response else 500
         error_detail = e.response.text if e.response else str(e)
+        print(f"RAG API HTTP error: {status_code} - {error_detail}")
         raise HTTPException(status_code=status_code, detail=f"Error from RAG API: {error_detail}")
     except Exception as e:
+        print(f"Unexpected error in RAG query: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"An internal error occurred: {str(e)}")
 
 

@@ -42,14 +42,8 @@ async def execute_research_pipeline(
     await update_status(stage="searching", progress=25, message=f"Scouring {total_queries} web sources...")
 
     # Phase 2: Execute CSE searches
-    loop = asyncio.get_running_loop()
-    # --- REVERT THIS CALL ---
-    tagged_urls = await loop.run_in_executor(
-        ThreadPoolExecutor(MAX_SEARCH_WORKERS),
-        execute_cse_searches,
-        search_queries
-        # No more update_status callback passed here
-    )
+    # after – call the new async func directly
+    tagged_urls = await execute_cse_searches(search_queries)
     if not tagged_urls:
         raise ValueError("Pipeline Error: No URLs were collected from search.")
     
@@ -98,7 +92,7 @@ async def execute_research_pipeline(
     print("-> Starting final report synthesis and data extraction in parallel...")
     await update_status(stage="compiling", progress=90, message="Generating the final executive report...")
 
-    final_report_task = loop.run_in_executor(
+    final_report_task = asyncio.get_event_loop().run_in_executor(
         ThreadPoolExecutor(1),
         synthesize_final_report,
         user_query,

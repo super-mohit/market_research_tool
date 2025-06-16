@@ -11,6 +11,7 @@ import json
 import datetime
 from datetime import date
 import re
+import time
 from google import genai
 from google.genai import types
 from src import config
@@ -38,130 +39,100 @@ def _pad_categories(cat_dict: dict) -> dict:
     return {k: list(cat_dict.get(k, [])) for k in EXPECTED_CATEGORIES}
 # ----------------------------------------------------------------
 
-async def extract_data_from_single_url(
+def extract_data_from_single_url_sync(
     url: str,
-    client: genai.Client,
-    semaphore: asyncio.Semaphore
+    client: genai.Client
 ) -> list[dict]:
     """
     Uses Gemini to extract structured items (news, Patents, conferences, Legalnews) from a URL.
-    Throttles concurrency via semaphore. Returns parsed list of item dicts.
+    Returns parsed list of item dicts.
     """
-    async with semaphore:
-        print(f"    - Extracting from: {url}")
-        try:
-            # Get current date for context
-            current_date = date.today()
-            current_year = current_date.year
-            target_years = f"{current_year - constants.RECENT_YEARS + 1}-{current_year}"
+    print(f"    - Extracting from: {url}")
+    try:
+        # Get current date for context
+        current_date = date.today()
+        current_year = current_date.year
+        target_years = f"{current_year - constants.RECENT_YEARS + 1}-{current_year}"
+        
+        instruction = (
+            f"You are a high-precision data extraction engine. Your sole function is to parse an online document and extract specific, structured information related to the coatings industry. You must be rigorous and discard any item that does not meet the criteria perfectly. Today's date is {current_date.strftime('%Y-%m-%d')}.\n\n"
             
-            instruction = (
-                f"You are a data extraction specialist for the global coatings industry. "
-                f"Today is {current_date.strftime('%B %d, %Y')}.\n\n"
-                
-                f"**TARGET URL:** {url}\n\n"
-                
-                "**EXTRACTION TASK:**\n"
-                "Extract ONLY ENGLISH-language items from the above URL that fall into these categories:\n"
-                "• **News** - Industry news, company announcements, market updates\n"
-                "• **Patents** - Patent applications, grants, IP developments\n"
-                "• **Conference** - Industry events, conferences, presentations, webinars\n"
-                "• **Legalnews** - Regulatory updates, compliance news, legal developments\n\n"
-                
-                "**TEMPORAL FILTER:**\n"
-                f"Include ONLY items published from {target_years} (last {constants.RECENT_YEARS} years).\n"
-                "Exclude anything older than this timeframe.\n\n"
-                
-                "**FIELD REQUIREMENTS:**\n"
-                "For each qualifying item, extract exactly these 5 fields:\n\n"
-                
-                "1. **type** - One of: 'News', 'Patents', 'Conference', 'Legalnews'\n"
-                "   - Use the most appropriate category based on content\n"
-                "   - When uncertain, prioritize based on primary focus\n\n"
-                
-                "2. **title** - Clear, descriptive headline (50-100 characters)\n"
-                "   - Use original title if available, otherwise create concise summary title\n"
-                "   - Focus on coatings-relevant aspects\n\n"
-                
-                "3. **summary** - Comprehensive summary (100-300 words)\n"
-                "   - Include key technical details, market impact, company names\n"
-                "   - Quantify when possible (market size, percentages, dates)\n"
-                "   - Highlight coatings industry relevance\n\n"
-                
-                "4. **date** - Publication date in ISO format (YYYY-MM-DD)\n"
-                "   - Use exact publication date if available\n"
-                "   - If only month/year available, use first day of month\n"
-                "   - Skip items without determinable date\n\n"
-                
-                "5. **source_url** - The exact URL being analyzed\n"
-                f"   - Use: {url}\n\n"
-                
-                "**QUALITY STANDARDS:**\n"
-                "• Focus on items directly relevant to coatings, paints, adhesives, sealants\n"
-                "• Prioritize items with quantitative data or specific technical details\n"
-                "• Exclude generic business news unless coatings-specific\n"
-                "• Ensure summaries are substantive and informative\n"
-                "• Verify dates meet the temporal filter requirements\n\n"
-                
-                "**OUTPUT FORMAT:**\n"
-                "Return a valid JSON array. Each object must have exactly the 5 fields above.\n"
-                "Return [] (empty array) if no qualifying items are found.\n"
-                "Example structure:\n"
-                "[\n"
-                '  {\n'
-                '    "type": "News",\n'
-                '    "title": "New Anti-Corrosion Coating Technology...",\n'
-                '    "summary": "Company X announced a breakthrough...",\n'
-                '    "date": "2024-03-15",\n'
-                f'    "source_url": "{url}"\n'
-                '  }\n'
-                "]"
-            )
+            f"**SOURCE URL TO ANALYZE:** {url}\n\n"
+            
+            "**EXTRACTION TASK & CATEGORIES:**\n"
+            "From the URL content, extract ONLY English-language items from the last {constants.RECENT_YEARS} years ({target_years}) that fit one of these exact categories:\n"
+            "• **News**: Company announcements, market reports, financial updates.\n"
+            "• **Patents**: Patent applications, grants, or detailed technical whitepapers on novel technology.\n"
+            "• **Conference**: Announcements or summaries of industry events, webinars, or presentations.\n"
+            "• **Legalnews**: Regulatory updates, new chemical standards, or legal cases relevant to coatings.\n\n"
+            
+            "**JSON OBJECT FIELD REQUIREMENTS (STRICT):**\n"
+            "For each qualifying item, create a JSON object with these exact 5 fields:\n\n"
+            
+            "1. **`type`**: (String) Must be one of: 'News', 'Patents', 'Conference', 'Legalnews'. Classify based on the primary focus of the content.\n\n"
+            
+            "2. **`title`**: (String) The official title of the article or patent. If none, create a concise, descriptive title (5-15 words). MUST be relevant to coatings.\n\n"
+            
+            "3. **`summary`**: (String, 100-300 words) A self-contained, detailed summary. Must include key entities (companies, products), quantitative data (percentages, market values), and the core finding's significance to the coatings industry. Do not assume the user will read the source.\n\n"
+            
+            "4. **`date`**: (String or Null) The publication date in **YYYY-MM-DD** format. If only month/year are available, use the first day (e.g., '2024-05-01'). If the date cannot be reliably determined or is outside the {constants.RECENT_YEARS}-year window, this field MUST be `null`.\n\n"
+            
+            "5. **`source_url`**: (String) The exact URL provided for analysis: `{url}`\n\n"
+            
+            "**RIGOROUS QUALITY CONTROL:**\n"
+            "• **Precision is Key:** If an item is ambiguous or its relevance to coatings is weak, **DO NOT** include it. It is better to return an empty array than incorrect data.\n"
+            "• **No Duplicates:** If one article mentions two separate products, create two distinct JSON objects.\n"
+            "• **Validate Dates:** Strictly enforce the recency filter. Exclude older content.\n"
+            "• **Strict JSON:** The final output must be a single, valid JSON array `[...]`. No text before or after.\n\n"
+            
+            "**FINAL OUTPUT FORMAT:**\n"
+            "Return a valid JSON array of objects. Return an empty array `[]` if no qualifying items are found."
+        )
 
-            contents = [
-                types.Content(
-                    role="user",
-                    parts=[
-                        types.Part(text=instruction)
-                    ],
-                )
-            ]
-            tools = [types.Tool(url_context=types.UrlContext())]
-            config_obj = types.GenerateContentConfig(
-                tools=tools,
-                response_modalities=["TEXT"],
-                safety_settings=[
-                    types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
-                    types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
-                    types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
-                    types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
+        contents = [
+            types.Content(
+                role="user",
+                parts=[
+                    types.Part(text=instruction)
                 ],
             )
-            response = await client.aio.models.generate_content(
-                model="gemini-2.5-pro-preview-06-05",
-                contents=contents,
-                config=config_obj,
-            )
+        ]
+        tools = [types.Tool(url_context=types.UrlContext())]
+        config_obj = types.GenerateContentConfig(
+            tools=tools,
+            response_modalities=["TEXT"],
+            safety_settings=[
+                types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
+                types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
+                types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
+                types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
+            ],
+        )
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-preview-05-20",
+            contents=contents,
+            config=config_obj,
+        )
+        
+        if not response.candidates or not response.candidates[0].content or not response.candidates[0].content.parts:
+            print(f"      → No content part in Gemini response for: {url}")
+            return []
             
-            if not response.candidates or not response.candidates[0].content or not response.candidates[0].content.parts:
-                print(f"      → No content part in Gemini response for: {url}")
-                return []
-                
-            text_output = response.candidates[0].content.parts[0].text.strip()
-            # Extract the JSON array substring
-            match = re.search(r"\[.*\]", text_output, re.S)
-            if not match:
-                print(f"      → No JSON array in response for: {url}\n        Response: {text_output[:100]}...")
-                return []
-            items = json.loads(match.group(0))
-            return items if isinstance(items, list) else []
+        text_output = response.candidates[0].content.parts[0].text.strip()
+        # Extract the JSON array substring
+        match = re.search(r"\[.*\]", text_output, re.S)
+        if not match:
+            print(f"      → No JSON array in response for: {url}\n        Response: {text_output[:100]}...")
+            return []
+        items = json.loads(match.group(0))
+        return items if isinstance(items, list) else []
 
-        except json.JSONDecodeError as e:
-            print(f"      → JSONDecodeError for URL {url}: {e}")
-            return []
-        except Exception as e:
-            print(f"      → Error processing {url}: {e}")
-            return []
+    except json.JSONDecodeError as e:
+        print(f"      → JSONDecodeError for URL {url}: {e}")
+        return []
+    except Exception as e:
+        print(f"      → Error processing {url}: {e}")
+        return []
 
 async def run_structured_extraction(
     urls: list[str],
@@ -184,39 +155,40 @@ async def run_structured_extraction(
     print(f"\nPhase 4: Extracting structured data from {len(urls)} URLs in batches...")
     os.makedirs(output_dir, exist_ok=True)
     
-    semaphore = asyncio.Semaphore(MAX_GEMINI_PARALLEL)
-
-    BATCH = EXTRACT_BATCH_SIZE
-    batches = [urls[i:i+BATCH] for i in range(0, len(urls), BATCH)]
-    
+    # ————— fast concurrent extraction —————
+    sem = asyncio.Semaphore(constants.MAX_GEMINI_PARALLEL)
     client = genai.Client(api_key=config.GEMINI_API_KEY)
+
+    async def one(url):
+        async with sem:
+            # Run the synchronous extraction in a thread executor
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(
+                None, 
+                lambda: extract_data_from_single_url_sync(url, client)
+            )
+
+    t0 = time.perf_counter()
+    out_lists = await asyncio.gather(*(one(u) for u in urls))
+    elapsed = time.perf_counter() - t0
+    print(f"✓ Phase 4 – extracted {len(urls)} URLs in {elapsed:0.1f}s "
+          f"({constants.MAX_GEMINI_PARALLEL} Gemini workers)")
+    
     categorized = {k: [] for k in EXPECTED_CATEGORIES}
     total_items = 0
     
-    # Process each batch
-    for batch_idx, batch_urls in enumerate(batches):
-        print(f"  Processing batch {batch_idx + 1}/{len(batches)} ({len(batch_urls)} URLs)...")
-        
-        # Launch all tasks for this batch
-        tasks = [
-            asyncio.create_task(extract_data_from_single_url(u, client, semaphore))
-            for u in batch_urls
-        ]
-
-        # Collect results as each finishes (parallel)
-        for completed in asyncio.as_completed(tasks):
-            items = await completed
-            for item in items:
-                if not _is_recent(item.get("date")):
-                    # silently drop anything older than RECENT_YEARS
-                    continue
-                # When normalising each item - use url2tag for type guessing
-                item_type = (item.get("type") or url2tag.get(item.get("source_url"), "Other")) or "Other"
-                item["type"] = item_type
-                
-                t = item.get("type", "Other")
-                categorized.setdefault(t if t in EXPECTED_CATEGORIES else "Other", categorized["Other"]).append(item)
-                total_items += 1
+    for items in out_lists:
+        for item in items:
+            if not _is_recent(item.get("date")):
+                # silently drop anything older than RECENT_YEARS
+                continue
+            # When normalising each item - use url2tag for type guessing
+            item_type = (item.get("type") or url2tag.get(item.get("source_url"), "Other")) or "Other"
+            item["type"] = item_type
+            
+            t = item.get("type", "Other")
+            categorized.setdefault(t if t in EXPECTED_CATEGORIES else "Other", categorized["Other"]).append(item)
+            total_items += 1
 
     # Prepare metadata and write output
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -255,4 +227,4 @@ if __name__ == '__main__':
     sample_url2tag = {url: "News" for url in sample_urls}  # Sample mapping
     extracted = asyncio.run(run_structured_extraction(sample_urls, 'Test Extraction', sample_url2tag))
     print("\nFinal extracted data:")
-    print(json.dumps(extracted, indent=2))
+    print(json.dumps(extracted, indent=2)) 

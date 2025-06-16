@@ -32,41 +32,44 @@ def generate_search_queries(user_input: str) -> dict[str, list[str]]:
         current_year = current_date.year
         current_month = current_date.strftime("%B")
         
-        # 2. Define the prompt
+        # 2. Define the enhanced prompt
         prompt = f"""
-You are a senior market-intelligence analyst specialising in the global
-coatings industry.
+You are a world-class market intelligence strategist for a top-tier global chemical company, with deep expertise in the decorative and industrial coatings sectors. Your mission is to formulate precise search queries to uncover actionable intelligence for our business and R&D teams.
 
 CURRENT DATE CONTEXT:
-Today is {current_month} {current_date.day}, {current_year}. When generating queries, prioritize information from {current_year} and the most recent {constants.RECENT_YEARS} years ({current_year - constants.RECENT_YEARS + 1}-{current_year}).
+Today is {current_month} {current_date.day}, {current_year}. The intelligence must be current. Prioritize information from {current_year} and the last {constants.RECENT_YEARS} years ({current_year - constants.RECENT_YEARS + 1}-{current_year}).
 
-USER REQUEST:
+USER'S STRATEGIC OBJECTIVE:
 {user_input}
 
-TASK  
-Generate a JSON dictionary that groups Google Custom Search Engine
-queries into the following buckets:
+TASK:
+Generate a JSON dictionary of Google Custom Search Engine (CSE) queries. These queries will be run against a curated list of trusted industry sources. Your queries must be designed to uncover breakthrough technologies, competitive shifts, regulatory changes, and emerging market needs.
 
-  • "News"        • "Patents"  
-  • "Conference"  • "Legalnews"  
-  • "General"     (technology & market background)
+QUERY BUCKETS:
+Group your queries into the following strategic buckets:
+- "News": Corporate announcements, M&A activity, financial results, partnerships.
+- "Patents": Patent filings, new intellectual property, and technical whitepapers. Focus on novel chemistries and formulations.
+- "Conference": Key findings, presentations, and announcements from major industry events (e.g., American Coatings Show, European Coatings Show).
+- "Legalnews": New environmental regulations (like VOC limits), chemical bans, and compliance standards.
+- "General": Broader queries on technology trends, market analysis, and material science innovations.
 
-MANDATORY RULES
-1.  Every query must use **one** `site:` operator that restricts the
-    search to a single domain drawn from the user's allowed list.
-2.  Bias the wording toward **recency** – e.g. "latest", "{current_year}", "recent", "new" –
-    so results fall within the last {constants.RECENT_YEARS} calendar years ({current_year - constants.RECENT_YEARS + 1}-{current_year}).
-3.  Each bucket may contain up to 15 unique queries.
-4.  Vary keywords to capture innovations, regulations, performance
-    testing, sustainability, and scuff-resistance.
-5.  Focus on the most current developments, trends, and announcements.
-6.  Return **only** this JSON object. No prose, no markdown:
+MANDATORY RULES:
+1.  **Source Specificity:** Every query MUST use a `site:` operator to target a single domain from the user's provided list.
+2.  **Strategic Keywords:** Go beyond simple topics. Combine technologies (e.g., "polyurethane dispersion," "silane-modified polymers," "hydrophobic additives") with performance outcomes (e.g., "scuff resistance," "weatherability," "self-healing," "oleophobic") and business context (e.g., "market trend," "supply chain," "sustainability report").
+3.  **Recency Bias:** Embed recency terms in the queries: "{current_year}," "{current_year + 1} forecast," "latest," "emerging," "new."
+4.  **Actionable Intelligence Focus:** Formulate queries to find data. Think like a strategist: What would you search for to find competitor weaknesses or new market opportunities?
+5.  **Output Format:** Return ONLY the JSON object. Do not include any explanatory text, markdown formatting, or apologies.
 
+EXAMPLE OF A HIGH-QUALITY QUERY:
+"latest developments in scuff-resistant architectural coatings {current_year} site:coatingsworld.com"
+"sustainability initiatives AkzoNobel coatings {current_year + 1} report site:paint.org"
+
+JSON OUTPUT STRUCTURE:
 {{
   "News":        [ "...", "..." ],
   "Patents":     [ "...", "..." ],
   "Conference":  [ "...", "..." ],
-  "Legalnews":  [ "...", "..." ],
+  "Legalnews":   [ "...", "..." ],
   "General":     [ "...", "..." ]
 }}
 """
@@ -94,7 +97,7 @@ MANDATORY RULES
         )
 
         # 5. Make the API call using the CORRECT method: client.models.generate_content
-        model_name = "gemini-2.5-pro-preview-06-05"
+        model_name = "gemini-2.5-flash-preview-05-20"
         response = client.models.generate_content(
             model=f"models/{model_name}",
             contents=contents,

@@ -858,12 +858,17 @@ async def ask_rag_collection(query_request: RAGQueryRequest, db: Session = Depen
         if not job:
             raise HTTPException(status_code=404, detail=f"Collection '{query_request.collection_name}' not associated with any known job.")
 
+        print(f"Processing RAG query for collection: {query_request.collection_name}")
+        print(f"Question: {query_request.question}")
+
         # Pass the current context from the DB
         answer_payload = query_rag_collection(
             collection_name=query_request.collection_name,
             question=query_request.question,
             current_chat_context=job.rag_chat_context # Pass current context
         )
+
+        print(f"RAG API returned: {answer_payload}")
 
         # Update the chat context in the DB
         if answer_payload and 'chat_context' in answer_payload:
@@ -872,18 +877,28 @@ async def ask_rag_collection(query_request: RAGQueryRequest, db: Session = Depen
             job.rag_chat_context += separator + new_fragment
             db.commit()
 
-        return RAGQueryResponse(
+        # Ensure we're returning the correct structure
+        response = RAGQueryResponse(
             collection_name=query_request.collection_name,
             question=query_request.question,
             answer=answer_payload
         )
+        
+        print(f"Returning response: {response.dict()}")
+        return response
+        
     except ValueError as e:
+        print(f"RAG configuration error: {str(e)}")
         raise HTTPException(status_code=400, detail=f"RAG system not properly configured: {str(e)}")
     except requests.exceptions.HTTPError as e:
         status_code = e.response.status_code if e.response else 500
         error_detail = e.response.text if e.response else str(e)
+        print(f"RAG API HTTP error: {status_code} - {error_detail}")
         raise HTTPException(status_code=status_code, detail=f"Error from RAG API: {error_detail}")
     except Exception as e:
+        print(f"Unexpected error in RAG query: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"An internal error occurred: {str(e)}")
 
 
@@ -1055,14 +1070,14 @@ File: src/constants.py
 # -------------------------------------------------
 #  Global throttling & limit switches for the pipeline
 # -------------------------------------------------
-MAX_SEARCH_RESULTS   = 4     # items per Google-CSE query
-MAX_SEARCH_WORKERS   = 9     # parallel threads for CSE calls
+MAX_SEARCH_RESULTS   = 2        # items per Google-CSE query
+MAX_SEARCH_WORKERS   = 30    # parallel threads for CSE calls
 
-MAX_GENERAL_FOR_REPORT = 18  # cap "General" URLs that feed the executive report
+MAX_GENERAL_FOR_REPORT = 9  # cap "General" URLs that feed the executive report
 
-MAX_PER_BUCKET_EXTRACT = 9   # News / Patents / Conf / Legalnews
+MAX_PER_BUCKET_EXTRACT = 3   # News / Patents / Conf / Legalnews
 EXTRACT_BATCH_SIZE     = 18  # 2 × batches → 18 URLs each
-MAX_GEMINI_PARALLEL    = 9   # concurrent Gemini requests in extractor
+MAX_GEMINI_PARALLEL    = 30  # concurrent Gemini requests in extractor
 
 # ---- NEW ----  Global “freshness” policy -------------------------
 RECENT_YEARS = 2             # only keep items from the last N calendar years
@@ -1116,14 +1131,8 @@ async def execute_research_pipeline(
     await update_status(stage="searching", progress=25, message=f"Scouring {total_queries} web sources...")
 
     # Phase 2: Execute CSE searches
-    loop = asyncio.get_running_loop()
-    # --- REVERT THIS CALL ---
-    tagged_urls = await loop.run_in_executor(
-        ThreadPoolExecutor(MAX_SEARCH_WORKERS),
-        execute_cse_searches,
-        search_queries
-        # No more update_status callback passed here
-    )
+    # after – call the new async func directly
+    tagged_urls = await execute_cse_searches(search_queries)
     if not tagged_urls:
         raise ValueError("Pipeline Error: No URLs were collected from search.")
     
@@ -1172,7 +1181,7 @@ async def execute_research_pipeline(
     print("-> Starting final report synthesis and data extraction in parallel...")
     await update_status(stage="compiling", progress=90, message="Generating the final executive report...")
 
-    final_report_task = loop.run_in_executor(
+    final_report_task = asyncio.get_event_loop().run_in_executor(
         ThreadPoolExecutor(1),
         synthesize_final_report,
         user_query,
@@ -1279,41 +1288,44 @@ def generate_search_queries(user_input: str) -> dict[str, list[str]]:
         current_year = current_date.year
         current_month = current_date.strftime("%B")
         
-        # 2. Define the prompt
+        # 2. Define the enhanced prompt
         prompt = f"""
-You are a senior market-intelligence analyst specialising in the global
-coatings industry.
+You are a world-class market intelligence strategist for a top-tier global chemical company, with deep expertise in the decorative and industrial coatings sectors. Your mission is to formulate precise search queries to uncover actionable intelligence for our business and R&D teams.
 
 CURRENT DATE CONTEXT:
-Today is {current_month} {current_date.day}, {current_year}. When generating queries, prioritize information from {current_year} and the most recent {constants.RECENT_YEARS} years ({current_year - constants.RECENT_YEARS + 1}-{current_year}).
+Today is {current_month} {current_date.day}, {current_year}. The intelligence must be current. Prioritize information from {current_year} and the last {constants.RECENT_YEARS} years ({current_year - constants.RECENT_YEARS + 1}-{current_year}).
 
-USER REQUEST:
+USER'S STRATEGIC OBJECTIVE:
 {user_input}
 
-TASK  
-Generate a JSON dictionary that groups Google Custom Search Engine
-queries into the following buckets:
+TASK:
+Generate a JSON dictionary of Google Custom Search Engine (CSE) queries. These queries will be run against a curated list of trusted industry sources. Your queries must be designed to uncover breakthrough technologies, competitive shifts, regulatory changes, and emerging market needs.
 
-  • "News"        • "Patents"  
-  • "Conference"  • "Legalnews"  
-  • "General"     (technology & market background)
+QUERY BUCKETS:
+Group your queries into the following strategic buckets:
+- "News": Corporate announcements, M&A activity, financial results, partnerships.
+- "Patents": Patent filings, new intellectual property, and technical whitepapers. Focus on novel chemistries and formulations.
+- "Conference": Key findings, presentations, and announcements from major industry events (e.g., American Coatings Show, European Coatings Show).
+- "Legalnews": New environmental regulations (like VOC limits), chemical bans, and compliance standards.
+- "General": Broader queries on technology trends, market analysis, and material science innovations.
 
-MANDATORY RULES
-1.  Every query must use **one** `site:` operator that restricts the
-    search to a single domain drawn from the user's allowed list.
-2.  Bias the wording toward **recency** – e.g. "latest", "{current_year}", "recent", "new" –
-    so results fall within the last {constants.RECENT_YEARS} calendar years ({current_year - constants.RECENT_YEARS + 1}-{current_year}).
-3.  Each bucket may contain up to 15 unique queries.
-4.  Vary keywords to capture innovations, regulations, performance
-    testing, sustainability, and scuff-resistance.
-5.  Focus on the most current developments, trends, and announcements.
-6.  Return **only** this JSON object. No prose, no markdown:
+MANDATORY RULES:
+1.  **Source Specificity:** Every query MUST use a `site:` operator to target a single domain from the user's provided list.
+2.  **Strategic Keywords:** Go beyond simple topics. Combine technologies (e.g., "polyurethane dispersion," "silane-modified polymers," "hydrophobic additives") with performance outcomes (e.g., "scuff resistance," "weatherability," "self-healing," "oleophobic") and business context (e.g., "market trend," "supply chain," "sustainability report").
+3.  **Recency Bias:** Embed recency terms in the queries: "{current_year}," "{current_year + 1} forecast," "latest," "emerging," "new."
+4.  **Actionable Intelligence Focus:** Formulate queries to find data. Think like a strategist: What would you search for to find competitor weaknesses or new market opportunities?
+5.  **Output Format:** Return ONLY the JSON object. Do not include any explanatory text, markdown formatting, or apologies.
 
+EXAMPLE OF A HIGH-QUALITY QUERY:
+"latest developments in scuff-resistant architectural coatings {current_year} site:coatingsworld.com"
+"sustainability initiatives AkzoNobel coatings {current_year + 1} report site:paint.org"
+
+JSON OUTPUT STRUCTURE:
 {{
   "News":        [ "...", "..." ],
   "Patents":     [ "...", "..." ],
   "Conference":  [ "...", "..." ],
-  "Legalnews":  [ "...", "..." ],
+  "Legalnews":   [ "...", "..." ],
   "General":     [ "...", "..." ]
 }}
 """
@@ -1341,7 +1353,7 @@ MANDATORY RULES
         )
 
         # 5. Make the API call using the CORRECT method: client.models.generate_content
-        model_name = "gemini-2.5-pro-preview-06-05"
+        model_name = "gemini-2.5-flash-preview-05-20"
         response = client.models.generate_content(
             model=f"models/{model_name}",
             contents=contents,
@@ -1398,128 +1410,81 @@ MANDATORY RULES
 ================================================
 File: src/phase2_searcher.py
 ================================================
-# src/phase2_searcher.py
+# src/phase2_searcher.py  (fully rewritten)
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-from src import config
-from src.constants import MAX_SEARCH_RESULTS, MAX_SEARCH_WORKERS
-from src import constants
+import asyncio, re, time
+import httpx
 from datetime import date
-import threading
-import time
-import collections
+from src import config, constants
 
-# Thread-local storage for service instances
-_thread_local = threading.local()
+CSE_ENDPOINT = "https://customsearch.googleapis.com/customsearch/v1"
 
-def _get_service():
-    """
-    Get or create a thread-local Google Custom Search service instance.
-    This ensures each thread has its own service object.
-    """
-    if not hasattr(_thread_local, 'service'):
-        _thread_local.service = build(
-            "customsearch", "v1", developerKey=config.GOOGLE_API_KEY
-        )
-    return _thread_local.service
-
-def _execute_single_query(query_info: tuple) -> tuple:
-    """
-    Execute a single search query and return results.
-    Returns:
-        Tuple of (query_index, bucket, query_string, tagged_urls, error_message)
-    """
-    query_index, bucket, query, num_results = query_info
-    urls = []
-    error_msg = None
-    
+async def _single_cse(client: httpx.AsyncClient, query: str, bucket: str,
+                      num_results: int, idx: int) -> list[tuple[str, str]]:
+    """Fire one CSE request, return (url, bucket) pairs."""
+    year_from = date.today().year - constants.RECENT_YEARS
+    params = {
+        "q": query,
+        "cx": config.GOOGLE_CSE_ID,
+        "key": config.GOOGLE_API_KEY,
+        "num": num_results,
+        "sort": f"date:r:{year_from}0101:{date.today():%Y%m%d}",
+    }
     try:
-        service = _get_service()
-        year_from = date.today().year - constants.RECENT_YEARS
-        sort_range = f"date:r:{year_from}0101:{date.today().strftime('%Y%m%d')}"
-
-        # First attempt
-        try:
-            res = service.cse().list(
-                q=query,
-                cx=config.GOOGLE_CSE_ID,
-                num=num_results,
-                sort=sort_range
-            ).execute()
-        except HttpError as http_err:
-                if http_err.resp.status == 400:
-                    # Retry without sort param if 400 error
-                    res = service.cse().list(
-                        q=query,
-                        cx=config.GOOGLE_CSE_ID,
-                        num=num_results
-                    ).execute()
-                elif http_err.resp.status == 503:
-                    time.sleep(1)  # Brief pause before retry
-                    res = service.cse().list(
-                        q=query,
-                        cx=config.GOOGLE_CSE_ID,
-                        num=num_results,
-                        sort=sort_range
-                    ).execute()
-                else:
-                    # Re-raise other HTTP errors
-                    raise http_err
-        
-        # Extract the 'link' from each search item
-        if 'items' in res:
-            urls = [item['link'] for item in res['items']]
-        
+        r = await client.get(CSE_ENDPOINT, params=params, timeout=20)
+        r.raise_for_status()
+        items = r.json().get("items", [])
+        return [(it["link"], bucket) for it in items]
+    except httpx.HTTPStatusError as e:
+        # retry once without the sort parameter on 400
+        if e.response.status_code == 400 and "sort" in params:
+            params.pop("sort", None)
+            r = await client.get(CSE_ENDPOINT, params=params, timeout=20)
+            r.raise_for_status()
+            items = r.json().get("items", [])
+            return [(it["link"], bucket) for it in items]
+        print(f"⚠️  CSE error {e.response.status_code} for query #{idx}: {query[:60]}")
     except Exception as e:
-        error_msg = str(e)
-    
-    # Tag each URL with its bucket
-    tagged = [(link, bucket) for link in urls]
-    
-    # --- The return signature is now shorter ---
-    return query_index, bucket, query, tagged, error_msg
+        print(f"⚠️  {e} on query #{idx}")
+    return []
 
-def execute_cse_searches(
-    queries_by_type: dict[str, list[str]],
-    num_results: int = MAX_SEARCH_RESULTS,
-    max_workers: int = MAX_SEARCH_WORKERS
-) -> list[tuple[str, str]]:
-    flat = [(bucket, q) for bucket, lst in queries_by_type.items() for q in lst]
-    print(f"\nPhase 2: Executing {len(flat)} searches...") # Simplified log
-    
-    # Validate that we can build a service first
-    try:
-        # Test service creation
-        test_service = build("customsearch", "v1", developerKey=config.GOOGLE_API_KEY)
-    except Exception as e:
-        print(f"FATAL: Could not build Google Search client. Error: {e}")
+async def execute_cse_searches(queries_by_type: dict[str, list[str]],
+                               num_results: int = constants.MAX_SEARCH_RESULTS,
+                               max_concurrency: int = constants.MAX_SEARCH_WORKERS
+                               ) -> list[tuple[str, str]]:
+    """
+    Fully asynchronous Google CSE runner.  No thread pools, HTTP/2, 1-RTT.
+    Returns deduped (url, bucket) list.
+    """
+    flat: list[tuple[str, str]] = [
+        (bucket, q) for bucket, lst in queries_by_type.items() for q in lst
+    ]
+    if not flat:
         return []
 
-    all_tagged_urls: dict[str, set[str]] = collections.defaultdict(set)
-    query_infos = [(i, bucket, query, num_results) for i, (bucket, query) in enumerate(flat)]
-    
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_query = {
-            executor.submit(_execute_single_query, query_info): query_info 
-            for query_info in query_infos
-        }
-        
-        for future in as_completed(future_to_query):
-            # --- MODIFIED: process the reverted return value ---
-            _query_index, _bucket, _query, tagged_urls, error_msg = future.result()
-            
-            # --- NO MORE CALLBACK ---
-            if error_msg:
-                print(f"    -> Error processing query: {error_msg}")
-            elif tagged_urls:
-                for link, bucket in tagged_urls:
-                    all_tagged_urls[bucket].add(link)
+    t0 = time.perf_counter()
+    tagset: set[tuple[str, str]] = set()
 
-    unique_tagged_urls = [(u, b) for b, urls in all_tagged_urls.items() for u in urls]
-    print(f"Successfully collected {len(unique_tagged_urls)} unique tagged URLs.")
-    return unique_tagged_urls
+    limits = httpx.Limits(max_connections=max_concurrency, max_keepalive_connections=max_concurrency)
+    async with httpx.AsyncClient(http2=True, limits=limits) as client:
+        sem = asyncio.Semaphore(max_concurrency)
+
+        async def _wrapped(i, bucket, query):
+            async with sem:
+                return await _single_cse(client, query, bucket, num_results, i)
+
+        tasks = [
+            asyncio.create_task(_wrapped(i, bucket, query))
+            for i, (bucket, query) in enumerate(flat)
+        ]
+        for coro in asyncio.as_completed(tasks):
+            for link, bucket in await coro:
+                tagset.add((link, bucket))
+
+    elapsed = time.perf_counter() - t0
+    print(f"✓ Phase 2 – {len(tagset)} unique URLs in {elapsed:0.1f}s "
+          f"({len(flat)} queries, {max_concurrency} concurrency)")
+    return list(tagset)
 
 
 ================================================
@@ -1562,51 +1527,39 @@ def synthesize_intermediate_report(
     target_years = f"{current_year - constants.RECENT_YEARS + 1}-{current_year}"
 
     system_instruction = (
-        f"You are a senior market intelligence analyst specializing in the global coatings industry. "
-        f"Today is {current_date.strftime('%B %d, %Y')}.\n\n"
+        f"You are a senior market intelligence analyst at a leading chemical company like PPG or Sherwin-Williams. "
+        f"Your audience is an R&D Director or a Business Unit Manager. They are technically savvy and time-poor. "
+        f"They need to know the 'so what?' of the information presented. Today is {current_date.strftime('%B %d, %Y')}.\n\n"
         
-        "**ANALYSIS PRIORITIES:**\n"
-        f"• Focus on information from {target_years} (last {constants.RECENT_YEARS} years)\n"
-        "• Prioritize quantitative data, market figures, and technical specifications\n"
-        "• Highlight breakthrough innovations, regulatory changes, and sustainability developments\n"
-        "• Identify emerging trends and competitive dynamics\n\n"
+        "**MISSION: Distill raw intelligence into a concise, data-driven sub-report.**\n"
+        f"Work exclusively from the provided URLs. Focus on information from the last {constants.RECENT_YEARS} years ({target_years}).\n\n"
         
-        "**CONTENT REQUIREMENTS:**\n"
-        "Work exclusively from the provided URLs. Synthesize information into a structured report with:\n\n"
+        "**REQUIRED REPORT STRUCTURE:**\n"
+        "Synthesize your findings into the following Markdown structure. For each point, focus on its significance.\n\n"
         
-        "1. **Executive Summary** (2-3 sentences highlighting the most critical insights)\n"
-        "2. **Key Technical Findings**\n"
-        "   - Performance data, test results, specifications\n"
-        "   - New formulations, technologies, or processes\n"
-        "   - Comparative analysis where applicable\n\n"
+        "1. **Top-Line Summary** (2-3 crucial sentences)\n"
+        "   - What is the single most important takeaway from these sources for our business?\n\n"
         
-        "3. **Market Intelligence**\n"
-        "   - Market size, growth rates, forecasts\n"
-        "   - Competitive landscape changes\n"
-        "   - Customer demand patterns and preferences\n\n"
+        "2. **Key Technical & Performance Data**\n"
+        "   - Extract specific performance metrics, test results (e.g., ASTM standards), and chemical formulations.\n"
+        "   - Note any quantitative improvements mentioned (e.g., '30% increase in scuff resistance').\n"
+        "   - **Implication:** Does this represent a threat to our existing products or an opportunity for innovation?\n\n"
         
-        "4. **Regulatory & Sustainability Context**\n"
-        "   - New regulations, compliance requirements\n"
-        "   - Environmental impact assessments\n"
-        "   - Sustainability initiatives and green technology adoption\n\n"
+        "3. **Market & Competitive Intelligence**\n"
+        "   - Identify market size/growth figures, and any mention of competitor activities (e.g., product launches, plant openings by AkzoNobel, BASF, etc.).\n"
+        "   - **Implication:** How does this shift the competitive landscape?\n\n"
         
-        "5. **Emerging Trends & Future Outlook**\n"
-        "   - R&D developments and pipeline innovations\n"
-        "   - Industry partnerships and acquisitions\n"
-        "   - Market disruptions and opportunities\n\n"
+        "4. **Sustainability & Regulatory Impact**\n"
+        "   - Pinpoint new regulations (e.g., VOC limits) or sustainability initiatives (e.g., bio-based content, circular economy).\n"
+        "   - **Implication:** What are the product development or compliance consequences for us?\n\n"
         
-        "**QUALITY STANDARDS:**\n"
-        "• Be specific and quantitative - include numbers, percentages, dates\n"
-        "• When sources conflict, note the discrepancy and cite both\n"
-        "• Distinguish between confirmed facts and industry speculation\n"
-        "• Use bullet points for clarity and scanability\n"
-        "• Maintain professional, analytical tone throughout\n\n"
+        "**QUALITY & TONE STANDARDS:**\n"
+        "• **Lead with Data:** Prioritize numbers, percentages, and dates. If a source quantifies something, you must include it.\n"
+        "• **Objective & Analytical Tone:** Avoid marketing fluff. Be direct and factual.\n"
+        "• **Note Contradictions:** If sources conflict, state the discrepancy clearly.\n"
+        "• **Cite Your Work:** Use inline numeric citations `[1]`, `[2]` corresponding to the URL list. Do not add a final reference list.\n\n"
         
-        "**CITATION FORMAT:**\n"
-        "Use inline numeric citations [1], [2] in the order URLs are provided. "
-        "Do NOT add a reference section - citations will be mapped externally.\n\n"
-        
-        "**OUTPUT:** Deliver a concise, actionable Markdown report that enables strategic decision-making."
+        "**OUTPUT:** A dense, actionable Markdown report that empowers a manager to make an informed decision."
     )
 
     # Combine system instruction with user instruction since Gemini only accepts "user" and "model" roles
@@ -1637,7 +1590,7 @@ def synthesize_intermediate_report(
     report_fragments = []
     try:
         stream = client.models.generate_content_stream(
-            model="models/gemini-2.5-pro-preview-06-05",
+            model="models/gemini-2.5-flash-preview-05-20",
             contents=contents,
             config=config_obj,
         )
@@ -1779,6 +1732,7 @@ import json
 import datetime
 from datetime import date
 import re
+import time
 from google import genai
 from google.genai import types
 from src import config
@@ -1806,130 +1760,100 @@ def _pad_categories(cat_dict: dict) -> dict:
     return {k: list(cat_dict.get(k, [])) for k in EXPECTED_CATEGORIES}
 # ----------------------------------------------------------------
 
-async def extract_data_from_single_url(
+def extract_data_from_single_url_sync(
     url: str,
-    client: genai.Client,
-    semaphore: asyncio.Semaphore
+    client: genai.Client
 ) -> list[dict]:
     """
     Uses Gemini to extract structured items (news, Patents, conferences, Legalnews) from a URL.
-    Throttles concurrency via semaphore. Returns parsed list of item dicts.
+    Returns parsed list of item dicts.
     """
-    async with semaphore:
-        print(f"    - Extracting from: {url}")
-        try:
-            # Get current date for context
-            current_date = date.today()
-            current_year = current_date.year
-            target_years = f"{current_year - constants.RECENT_YEARS + 1}-{current_year}"
+    print(f"    - Extracting from: {url}")
+    try:
+        # Get current date for context
+        current_date = date.today()
+        current_year = current_date.year
+        target_years = f"{current_year - constants.RECENT_YEARS + 1}-{current_year}"
+        
+        instruction = (
+            f"You are a high-precision data extraction engine. Your sole function is to parse an online document and extract specific, structured information related to the coatings industry. You must be rigorous and discard any item that does not meet the criteria perfectly. Today's date is {current_date.strftime('%Y-%m-%d')}.\n\n"
             
-            instruction = (
-                f"You are a data extraction specialist for the global coatings industry. "
-                f"Today is {current_date.strftime('%B %d, %Y')}.\n\n"
-                
-                f"**TARGET URL:** {url}\n\n"
-                
-                "**EXTRACTION TASK:**\n"
-                "Extract ONLY ENGLISH-language items from the above URL that fall into these categories:\n"
-                "• **News** - Industry news, company announcements, market updates\n"
-                "• **Patents** - Patent applications, grants, IP developments\n"
-                "• **Conference** - Industry events, conferences, presentations, webinars\n"
-                "• **Legalnews** - Regulatory updates, compliance news, legal developments\n\n"
-                
-                "**TEMPORAL FILTER:**\n"
-                f"Include ONLY items published from {target_years} (last {constants.RECENT_YEARS} years).\n"
-                "Exclude anything older than this timeframe.\n\n"
-                
-                "**FIELD REQUIREMENTS:**\n"
-                "For each qualifying item, extract exactly these 5 fields:\n\n"
-                
-                "1. **type** - One of: 'News', 'Patents', 'Conference', 'Legalnews'\n"
-                "   - Use the most appropriate category based on content\n"
-                "   - When uncertain, prioritize based on primary focus\n\n"
-                
-                "2. **title** - Clear, descriptive headline (50-100 characters)\n"
-                "   - Use original title if available, otherwise create concise summary title\n"
-                "   - Focus on coatings-relevant aspects\n\n"
-                
-                "3. **summary** - Comprehensive summary (100-300 words)\n"
-                "   - Include key technical details, market impact, company names\n"
-                "   - Quantify when possible (market size, percentages, dates)\n"
-                "   - Highlight coatings industry relevance\n\n"
-                
-                "4. **date** - Publication date in ISO format (YYYY-MM-DD)\n"
-                "   - Use exact publication date if available\n"
-                "   - If only month/year available, use first day of month\n"
-                "   - Skip items without determinable date\n\n"
-                
-                "5. **source_url** - The exact URL being analyzed\n"
-                f"   - Use: {url}\n\n"
-                
-                "**QUALITY STANDARDS:**\n"
-                "• Focus on items directly relevant to coatings, paints, adhesives, sealants\n"
-                "• Prioritize items with quantitative data or specific technical details\n"
-                "• Exclude generic business news unless coatings-specific\n"
-                "• Ensure summaries are substantive and informative\n"
-                "• Verify dates meet the temporal filter requirements\n\n"
-                
-                "**OUTPUT FORMAT:**\n"
-                "Return a valid JSON array. Each object must have exactly the 5 fields above.\n"
-                "Return [] (empty array) if no qualifying items are found.\n"
-                "Example structure:\n"
-                "[\n"
-                '  {\n'
-                '    "type": "News",\n'
-                '    "title": "New Anti-Corrosion Coating Technology...",\n'
-                '    "summary": "Company X announced a breakthrough...",\n'
-                '    "date": "2024-03-15",\n'
-                f'    "source_url": "{url}"\n'
-                '  }\n'
-                "]"
-            )
+            f"**SOURCE URL TO ANALYZE:** {url}\n\n"
+            
+            "**EXTRACTION TASK & CATEGORIES:**\n"
+            "From the URL content, extract ONLY English-language items from the last {constants.RECENT_YEARS} years ({target_years}) that fit one of these exact categories:\n"
+            "• **News**: Company announcements, market reports, financial updates.\n"
+            "• **Patents**: Patent applications, grants, or detailed technical whitepapers on novel technology.\n"
+            "• **Conference**: Announcements or summaries of industry events, webinars, or presentations.\n"
+            "• **Legalnews**: Regulatory updates, new chemical standards, or legal cases relevant to coatings.\n\n"
+            
+            "**JSON OBJECT FIELD REQUIREMENTS (STRICT):**\n"
+            "For each qualifying item, create a JSON object with these exact 5 fields:\n\n"
+            
+            "1. **`type`**: (String) Must be one of: 'News', 'Patents', 'Conference', 'Legalnews'. Classify based on the primary focus of the content.\n\n"
+            
+            "2. **`title`**: (String) The official title of the article or patent. If none, create a concise, descriptive title (5-15 words). MUST be relevant to coatings.\n\n"
+            
+            "3. **`summary`**: (String, 100-300 words) A self-contained, detailed summary. Must include key entities (companies, products), quantitative data (percentages, market values), and the core finding's significance to the coatings industry. Do not assume the user will read the source.\n\n"
+            
+            "4. **`date`**: (String or Null) The publication date in **YYYY-MM-DD** format. If only month/year are available, use the first day (e.g., '2024-05-01'). If the date cannot be reliably determined or is outside the {constants.RECENT_YEARS}-year window, this field MUST be `null`.\n\n"
+            
+            "5. **`source_url`**: (String) The exact URL provided for analysis: `{url}`\n\n"
+            
+            "**RIGOROUS QUALITY CONTROL:**\n"
+            "• **Precision is Key:** If an item is ambiguous or its relevance to coatings is weak, **DO NOT** include it. It is better to return an empty array than incorrect data.\n"
+            "• **No Duplicates:** If one article mentions two separate products, create two distinct JSON objects.\n"
+            "• **Validate Dates:** Strictly enforce the recency filter. Exclude older content.\n"
+            "• **Strict JSON:** The final output must be a single, valid JSON array `[...]`. No text before or after.\n\n"
+            
+            "**FINAL OUTPUT FORMAT:**\n"
+            "Return a valid JSON array of objects. Return an empty array `[]` if no qualifying items are found."
+        )
 
-            contents = [
-                types.Content(
-                    role="user",
-                    parts=[
-                        types.Part(text=instruction)
-                    ],
-                )
-            ]
-            tools = [types.Tool(url_context=types.UrlContext())]
-            config_obj = types.GenerateContentConfig(
-                tools=tools,
-                response_modalities=["TEXT"],
-                safety_settings=[
-                    types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
-                    types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
-                    types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
-                    types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
+        contents = [
+            types.Content(
+                role="user",
+                parts=[
+                    types.Part(text=instruction)
                 ],
             )
-            response = await client.aio.models.generate_content(
-                model="gemini-2.5-pro-preview-06-05",
-                contents=contents,
-                config=config_obj,
-            )
+        ]
+        tools = [types.Tool(url_context=types.UrlContext())]
+        config_obj = types.GenerateContentConfig(
+            tools=tools,
+            response_modalities=["TEXT"],
+            safety_settings=[
+                types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
+                types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
+                types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
+                types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
+            ],
+        )
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-preview-05-20",
+            contents=contents,
+            config=config_obj,
+        )
+        
+        if not response.candidates or not response.candidates[0].content or not response.candidates[0].content.parts:
+            print(f"      → No content part in Gemini response for: {url}")
+            return []
             
-            if not response.candidates or not response.candidates[0].content or not response.candidates[0].content.parts:
-                print(f"      → No content part in Gemini response for: {url}")
-                return []
-                
-            text_output = response.candidates[0].content.parts[0].text.strip()
-            # Extract the JSON array substring
-            match = re.search(r"\[.*\]", text_output, re.S)
-            if not match:
-                print(f"      → No JSON array in response for: {url}\n        Response: {text_output[:100]}...")
-                return []
-            items = json.loads(match.group(0))
-            return items if isinstance(items, list) else []
+        text_output = response.candidates[0].content.parts[0].text.strip()
+        # Extract the JSON array substring
+        match = re.search(r"\[.*\]", text_output, re.S)
+        if not match:
+            print(f"      → No JSON array in response for: {url}\n        Response: {text_output[:100]}...")
+            return []
+        items = json.loads(match.group(0))
+        return items if isinstance(items, list) else []
 
-        except json.JSONDecodeError as e:
-            print(f"      → JSONDecodeError for URL {url}: {e}")
-            return []
-        except Exception as e:
-            print(f"      → Error processing {url}: {e}")
-            return []
+    except json.JSONDecodeError as e:
+        print(f"      → JSONDecodeError for URL {url}: {e}")
+        return []
+    except Exception as e:
+        print(f"      → Error processing {url}: {e}")
+        return []
 
 async def run_structured_extraction(
     urls: list[str],
@@ -1952,39 +1876,40 @@ async def run_structured_extraction(
     print(f"\nPhase 4: Extracting structured data from {len(urls)} URLs in batches...")
     os.makedirs(output_dir, exist_ok=True)
     
-    semaphore = asyncio.Semaphore(MAX_GEMINI_PARALLEL)
-
-    BATCH = EXTRACT_BATCH_SIZE
-    batches = [urls[i:i+BATCH] for i in range(0, len(urls), BATCH)]
-    
+    # ————— fast concurrent extraction —————
+    sem = asyncio.Semaphore(constants.MAX_GEMINI_PARALLEL)
     client = genai.Client(api_key=config.GEMINI_API_KEY)
+
+    async def one(url):
+        async with sem:
+            # Run the synchronous extraction in a thread executor
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(
+                None, 
+                lambda: extract_data_from_single_url_sync(url, client)
+            )
+
+    t0 = time.perf_counter()
+    out_lists = await asyncio.gather(*(one(u) for u in urls))
+    elapsed = time.perf_counter() - t0
+    print(f"✓ Phase 4 – extracted {len(urls)} URLs in {elapsed:0.1f}s "
+          f"({constants.MAX_GEMINI_PARALLEL} Gemini workers)")
+    
     categorized = {k: [] for k in EXPECTED_CATEGORIES}
     total_items = 0
     
-    # Process each batch
-    for batch_idx, batch_urls in enumerate(batches):
-        print(f"  Processing batch {batch_idx + 1}/{len(batches)} ({len(batch_urls)} URLs)...")
-        
-        # Launch all tasks for this batch
-        tasks = [
-            asyncio.create_task(extract_data_from_single_url(u, client, semaphore))
-            for u in batch_urls
-        ]
-
-        # Collect results as each finishes (parallel)
-        for completed in asyncio.as_completed(tasks):
-            items = await completed
-            for item in items:
-                if not _is_recent(item.get("date")):
-                    # silently drop anything older than RECENT_YEARS
-                    continue
-                # When normalising each item - use url2tag for type guessing
-                item_type = (item.get("type") or url2tag.get(item.get("source_url"), "Other")) or "Other"
-                item["type"] = item_type
-                
-                t = item.get("type", "Other")
-                categorized.setdefault(t if t in EXPECTED_CATEGORIES else "Other", categorized["Other"]).append(item)
-                total_items += 1
+    for items in out_lists:
+        for item in items:
+            if not _is_recent(item.get("date")):
+                # silently drop anything older than RECENT_YEARS
+                continue
+            # When normalising each item - use url2tag for type guessing
+            item_type = (item.get("type") or url2tag.get(item.get("source_url"), "Other")) or "Other"
+            item["type"] = item_type
+            
+            t = item.get("type", "Other")
+            categorized.setdefault(t if t in EXPECTED_CATEGORIES else "Other", categorized["Other"]).append(item)
+            total_items += 1
 
     # Prepare metadata and write output
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -2023,8 +1948,7 @@ if __name__ == '__main__':
     sample_url2tag = {url: "News" for url in sample_urls}  # Sample mapping
     extracted = asyncio.run(run_structured_extraction(sample_urls, 'Test Extraction', sample_url2tag))
     print("\nFinal extracted data:")
-    print(json.dumps(extracted, indent=2))
-
+    print(json.dumps(extracted, indent=2)) 
 
 
 ================================================
@@ -2070,85 +1994,46 @@ def synthesize_final_report(
     target_years = f"{current_year - constants.RECENT_YEARS + 1}-{current_year}"
 
     system_instruction = (
-        f"You are the Chief Market Intelligence Officer for a global coatings industry consultancy. "
-        f"Today is {current_date.strftime('%B %d, %Y')}.\n\n"
+        f"You are the Chief Market Intelligence Officer for a global chemical company. Your audience is the CEO and the Board of Directors. Your task is to synthesize a collection of internal research briefings into a single, cohesive, and forward-looking executive report. Today is {current_date.strftime('%B %d, %Y')}.\n\n"
         
-        "**EXECUTIVE BRIEFING MANDATE:**\n"
-        "Synthesize multiple intermediate research reports into a comprehensive, C-suite ready "
-        "market intelligence brief that enables strategic decision-making in the coatings industry.\n\n"
+        "**MANDATE: Synthesize, Don't Summarize.**\n"
+        "Do not simply concatenate the provided intermediate reports. Your value is in finding the 'golden threads' that connect them. Identify the overarching trends, reconcile conflicting data points, and expose the critical strategic narrative hidden within the details. For every fact, you must answer the business-critical question: **'So what?'**\n\n"
         
-        "**SOURCE MATERIAL CONTEXT:**\n"
-        f"• All data sourced from {target_years} publications (last {constants.RECENT_YEARS} years)\n"
-        "• Multiple intermediate reports have been pre-analyzed from primary industry sources\n"
-        "• Eliminate redundancy and synthesize conflicting information with appropriate context\n"
-        "• Do NOT fabricate facts - work exclusively from provided material\n\n"
+        "**STRATEGIC REPORT STRUCTURE:**\n"
+        "Structure your brief using the following Markdown format. Each section must be analytical and focused on strategic implications.\n\n"
         
-        "**REPORT STRUCTURE & REQUIREMENTS:**\n\n"
+        "1.  **Executive Summary (The 3-Minute Briefing)**\n"
+        "    - Start with the single most critical conclusion from this research.\n"
+        "    - Present 2-3 key opportunities and threats that demand immediate leadership attention.\n"
+        "    - Conclude with the bottom-line impact for our company.\n\n"
         
-        "1. **Executive Summary** (200-250 words)\n"
-        "   - 2-3 key strategic insights that matter most to leadership\n"
-        "   - Critical market dynamics affecting competitive positioning\n"
-        "   - Most significant opportunities and threats identified\n"
-        "   - Bottom-line impact implications\n\n"
+        "2.  **Market Trajectory & Headwinds**\n"
+        "    - Synthesize market size and growth forecasts. Where are the pockets of growth, and where is the market stagnating?\n"
+        "    - What are the primary economic or consumer behavior trends driving demand?\n\n"
         
-        "2. **Market Overview**\n"
-        "   - Current market size, growth trajectories, and forecasts\n"
-        "   - Geographic and segment performance variations\n"
-        "   - Demand drivers and market evolution patterns\n"
-        "   - Economic and industry-specific influences\n\n"
+        "3.  **Competitive Arena: Key Moves & Vulnerabilities**\n"
+        "    - Analyze the strategic maneuvers of key competitors (e.g., PPG, AkzoNobel, BASF). Where are they investing? Where do they appear weak?\n"
+        "    - Highlight any M&A activity or partnerships that could reshape the market.\n\n"
         
-        "3. **Key Players & Competitive Dynamics**\n"
-        "   - Major player strategies, market share movements\n"
-        "   - Mergers, acquisitions, partnerships, and joint ventures\n"
-        "   - New market entrants and disruptive competitors\n"
-        "   - Competitive positioning and differentiation strategies\n\n"
+        "4.  **Technology & Innovation: The Next Frontier**\n"
+        "    - What are the 1-2 breakthrough technologies that could disrupt the market (e.g., in sustainability, application, performance)?\n"
+        "    - What does the patent landscape suggest about the future of coatings R&D?\n\n"
         
-        "4. **Technology & Innovation Landscape**\n"
-        "   - Breakthrough technologies and R&D developments\n"
-        "   - Patent activity and intellectual property trends\n"
-        "   - Emerging formulations, materials, and processes\n"
-        "   - Digital transformation and Industry 4.0 adoption\n\n"
+        "5.  **Regulatory & ESG: Risks and Opportunities**\n"
+        "    - What new regulations or environmental standards pose the greatest risk to our current product portfolio?\n"
+        "    - How can we leverage sustainability trends (e.g., circular economy, bio-based materials) into a competitive advantage?\n\n"
         
-        "5. **Regulatory & Sustainability Imperatives**\n"
-        "   - New regulations and compliance requirements affecting the industry\n"
-        "   - Environmental and safety standard evolution\n"
-        "   - Sustainability initiatives and green technology adoption\n"
-        "   - ESG considerations and stakeholder expectations\n\n"
+        "6.  **Actionable Strategic Recommendations**\n"
+        "    - **This is the most important section.** Provide 3-5 specific, bold, and actionable recommendations.\n"
+        "    - Frame them as clear directives. Example: 'Recommend allocating an additional $5M in R&D to develop a proprietary scuff-resistant resin to counter Competitor X's new product launch' instead of 'We should invest in R&D.'\n\n"
         
-        "6. **Market Challenges & Strategic Opportunities**\n"
-        "   - Supply chain disruptions and raw material constraints\n"
-        "   - Technology gaps and unmet market needs\n"
-        "   - Regulatory compliance challenges and competitive advantages\n"
-        "   - Emerging market opportunities and growth vectors\n\n"
+        "**EXECUTIVE COMMUNICATION PROTOCOL:**\n"
+        "•   **Be Decisive:** Use strong, declarative sentences. Avoid hedging language.\n"
+        "•   **Quantify Everything:** Use all available figures, percentages, and timelines to support your analysis.\n"
+        "•   **Clarity and Brevity:** Use headings and bullet points. Assume your audience has only five minutes.\n"
+        "•   **Reference Integrity:** Do NOT include inline citations. A reference list of the source URLs will be appended automatically.\n\n"
         
-        "7. **Strategic Recommendations & Forward Outlook**\n"
-        "   - Specific, actionable recommendations for market participants\n"
-        "   - Investment priorities and resource allocation guidance\n"
-        "   - Risk mitigation strategies for identified threats\n"
-        "   - Medium-term market outlook and key success factors\n\n"
-        
-        "**EXECUTIVE COMMUNICATION STANDARDS:**\n"
-        "• Write for C-suite executives with limited time - prioritize high-impact insights\n"
-        "• Quantify whenever possible - include market figures, percentages, timelines\n"
-        "• Use clear sub-headings and bullet points for rapid comprehension\n"
-        "• Maintain analytical objectivity while highlighting strategic implications\n"
-        "• Avoid industry jargon that may not be familiar to all executives\n"
-        "• Balance comprehensive coverage with concise, focused delivery\n"
-        "• Distinguish between confirmed trends and emerging possibilities\n\n"
-        
-        "**QUALITY ASSURANCE:**\n"
-        "• Synthesize information logically - don't simply concatenate reports\n"
-        "• Identify and reconcile conflicting information from multiple sources\n"
-        "• Highlight data limitations or gaps where appropriate\n"
-        "• Ensure all claims are substantiated by the source material\n"
-        "• Create coherent narrative flow between sections\n\n"
-        
-        "**REFERENCE HANDLING:**\n"
-        "Do NOT include inline citations or footnotes - a comprehensive reference list "
-        "will be automatically appended after your analysis.\n\n"
-        
-        "**DELIVERABLE:** A polished, professional Markdown report that serves as a "
-        "definitive market intelligence brief for strategic planning and decision-making."
+        "**DELIVERABLE:** A polished, professional Markdown report that can be directly used for the company's strategic planning session."
     )
 
     # Combine system instruction with user instruction since Gemini only accepts "user" and "model" roles
@@ -2179,7 +2064,7 @@ def synthesize_final_report(
     try:
         print("    - Calling Gemini for final synthesis...")
         stream = client.models.generate_content_stream(
-            model="gemini-2.5-pro-preview-06-05",
+            model="gemini-2.5-flash-preview-05-20",
             contents=contents,
             config=config_obj,
         )
@@ -2471,28 +2356,30 @@ def _update_system_prompt(collection_name: str):
     }
 
     # Create a comprehensive system prompt for market research intelligence
-    system_prompt = """You are an expert Market Research Intelligence Assistant specialized in analyzing research data, reports, and market insights. Your role is to:
+    system_prompt = """You are an expert Market Intelligence Analyst, acting as an interactive query engine for a specific research job.
 
-1. **Comprehensive Analysis**: Provide detailed analysis of market trends, competitive landscapes, and business opportunities from the uploaded research documents.
+**Your Core Directives:**
 
-2. **Data Synthesis**: Extract and synthesize key insights from multiple sources including news articles, patents, conference proceedings, and industry reports.
+1.  **Scope Limitation:** Your knowledge is strictly and absolutely limited to the documents uploaded for this research job. These include a final report, intermediate analyses, and structured data files (news, patents, etc.).
 
-3. **Strategic Recommendations**: Offer actionable recommendations based on market intelligence findings.
+2.  **Answer First, Then Cite:** Respond directly to the user's question first. Then, you MUST provide precise citations that support your answer.
+    - **Citation Format:** Refer to the source document by its logical name (e.g., `[final_report]`, `[intermediate_report_3]`, `[combined_news_data]`).
 
-4. **Citation & Sources**: Always provide specific citations from the uploaded documents with page numbers and source links when available.
+3.  **Synthesize and Analyze:** Do not just quote passages. Synthesize information from multiple sources if necessary to form a complete answer. When asked for an opinion or analysis (e.g., "What is the biggest threat?"), base your conclusion on the evidence within the documents.
 
-5. **Structured Responses**: Organize your responses with clear headings, bullet points, and structured formatting for easy consumption.
+4.  **Honesty and Transparency:** If you cannot answer a question using the provided documents, you MUST state that clearly. Do not hallucinate, speculate, or attempt to answer using external knowledge. A perfect answer is: "I cannot answer that question based on the provided documents."
 
-6. **Context Awareness**: Maintain awareness of the original research query and tailor responses to be relevant to the specific market research objectives.
+5.  **Be Professional and Concise:** Use clear, structured language (headings, bullet points) to present your findings. Your purpose is to provide quick, reliable access to the key intelligence contained in the research artifacts.
 
-When answering questions:
-- Start with a brief executive summary
-- Provide detailed analysis with supporting evidence
-- Include relevant data points, trends, and insights
-- Conclude with actionable recommendations
-- Always cite your sources from the uploaded documents
+**Example Interaction:**
 
-Your responses should be professional, analytical, and valuable for business decision-making."""
+User: "Which companies are leading in scuff-resistant coating technologies?"
+
+You: "Based on the provided research, the key players in scuff-resistant coating technologies include Company A, who launched a new product line, and Company B, who was granted a relevant patent.
+
+- Company A's "DuraShield" product showed a 50% improvement in abrasion tests according to the analysis. `[final_report]`
+- Company B's patent focuses on a novel polymer cross-linking technology. `[combined_patents_data]`"
+"""
 
     data = {
         "new_prompt": system_prompt,

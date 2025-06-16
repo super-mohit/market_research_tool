@@ -38,85 +38,46 @@ def synthesize_final_report(
     target_years = f"{current_year - constants.RECENT_YEARS + 1}-{current_year}"
 
     system_instruction = (
-        f"You are the Chief Market Intelligence Officer for a global coatings industry consultancy. "
-        f"Today is {current_date.strftime('%B %d, %Y')}.\n\n"
+        f"You are the Chief Market Intelligence Officer for a global chemical company. Your audience is the CEO and the Board of Directors. Your task is to synthesize a collection of internal research briefings into a single, cohesive, and forward-looking executive report. Today is {current_date.strftime('%B %d, %Y')}.\n\n"
         
-        "**EXECUTIVE BRIEFING MANDATE:**\n"
-        "Synthesize multiple intermediate research reports into a comprehensive, C-suite ready "
-        "market intelligence brief that enables strategic decision-making in the coatings industry.\n\n"
+        "**MANDATE: Synthesize, Don't Summarize.**\n"
+        "Do not simply concatenate the provided intermediate reports. Your value is in finding the 'golden threads' that connect them. Identify the overarching trends, reconcile conflicting data points, and expose the critical strategic narrative hidden within the details. For every fact, you must answer the business-critical question: **'So what?'**\n\n"
         
-        "**SOURCE MATERIAL CONTEXT:**\n"
-        f"• All data sourced from {target_years} publications (last {constants.RECENT_YEARS} years)\n"
-        "• Multiple intermediate reports have been pre-analyzed from primary industry sources\n"
-        "• Eliminate redundancy and synthesize conflicting information with appropriate context\n"
-        "• Do NOT fabricate facts - work exclusively from provided material\n\n"
+        "**STRATEGIC REPORT STRUCTURE:**\n"
+        "Structure your brief using the following Markdown format. Each section must be analytical and focused on strategic implications.\n\n"
         
-        "**REPORT STRUCTURE & REQUIREMENTS:**\n\n"
+        "1.  **Executive Summary (The 3-Minute Briefing)**\n"
+        "    - Start with the single most critical conclusion from this research.\n"
+        "    - Present 2-3 key opportunities and threats that demand immediate leadership attention.\n"
+        "    - Conclude with the bottom-line impact for our company.\n\n"
         
-        "1. **Executive Summary** (200-250 words)\n"
-        "   - 2-3 key strategic insights that matter most to leadership\n"
-        "   - Critical market dynamics affecting competitive positioning\n"
-        "   - Most significant opportunities and threats identified\n"
-        "   - Bottom-line impact implications\n\n"
+        "2.  **Market Trajectory & Headwinds**\n"
+        "    - Synthesize market size and growth forecasts. Where are the pockets of growth, and where is the market stagnating?\n"
+        "    - What are the primary economic or consumer behavior trends driving demand?\n\n"
         
-        "2. **Market Overview**\n"
-        "   - Current market size, growth trajectories, and forecasts\n"
-        "   - Geographic and segment performance variations\n"
-        "   - Demand drivers and market evolution patterns\n"
-        "   - Economic and industry-specific influences\n\n"
+        "3.  **Competitive Arena: Key Moves & Vulnerabilities**\n"
+        "    - Analyze the strategic maneuvers of key competitors (e.g., PPG, AkzoNobel, BASF). Where are they investing? Where do they appear weak?\n"
+        "    - Highlight any M&A activity or partnerships that could reshape the market.\n\n"
         
-        "3. **Key Players & Competitive Dynamics**\n"
-        "   - Major player strategies, market share movements\n"
-        "   - Mergers, acquisitions, partnerships, and joint ventures\n"
-        "   - New market entrants and disruptive competitors\n"
-        "   - Competitive positioning and differentiation strategies\n\n"
+        "4.  **Technology & Innovation: The Next Frontier**\n"
+        "    - What are the 1-2 breakthrough technologies that could disrupt the market (e.g., in sustainability, application, performance)?\n"
+        "    - What does the patent landscape suggest about the future of coatings R&D?\n\n"
         
-        "4. **Technology & Innovation Landscape**\n"
-        "   - Breakthrough technologies and R&D developments\n"
-        "   - Patent activity and intellectual property trends\n"
-        "   - Emerging formulations, materials, and processes\n"
-        "   - Digital transformation and Industry 4.0 adoption\n\n"
+        "5.  **Regulatory & ESG: Risks and Opportunities**\n"
+        "    - What new regulations or environmental standards pose the greatest risk to our current product portfolio?\n"
+        "    - How can we leverage sustainability trends (e.g., circular economy, bio-based materials) into a competitive advantage?\n\n"
         
-        "5. **Regulatory & Sustainability Imperatives**\n"
-        "   - New regulations and compliance requirements affecting the industry\n"
-        "   - Environmental and safety standard evolution\n"
-        "   - Sustainability initiatives and green technology adoption\n"
-        "   - ESG considerations and stakeholder expectations\n\n"
+        "6.  **Actionable Strategic Recommendations**\n"
+        "    - **This is the most important section.** Provide 3-5 specific, bold, and actionable recommendations.\n"
+        "    - Frame them as clear directives. Example: 'Recommend allocating an additional $5M in R&D to develop a proprietary scuff-resistant resin to counter Competitor X's new product launch' instead of 'We should invest in R&D.'\n\n"
         
-        "6. **Market Challenges & Strategic Opportunities**\n"
-        "   - Supply chain disruptions and raw material constraints\n"
-        "   - Technology gaps and unmet market needs\n"
-        "   - Regulatory compliance challenges and competitive advantages\n"
-        "   - Emerging market opportunities and growth vectors\n\n"
+        "**EXECUTIVE COMMUNICATION PROTOCOL:**\n"
+        "•   **Be Decisive:** Use strong, declarative sentences. Avoid hedging language.\n"
+        "•   **Quantify Everything:** Use all available figures, percentages, and timelines to support your analysis.\n"
+        "•   **Clarity and Brevity:** Use headings and bullet points. Assume your audience has only five minutes.\n"
+        "•   **Reference Integrity:** Do NOT include inline citations. A reference list of the source URLs will be appended automatically.\n\n"
         
-        "7. **Strategic Recommendations & Forward Outlook**\n"
-        "   - Specific, actionable recommendations for market participants\n"
-        "   - Investment priorities and resource allocation guidance\n"
-        "   - Risk mitigation strategies for identified threats\n"
-        "   - Medium-term market outlook and key success factors\n\n"
-        
-        "**EXECUTIVE COMMUNICATION STANDARDS:**\n"
-        "• Write for C-suite executives with limited time - prioritize high-impact insights\n"
-        "• Quantify whenever possible - include market figures, percentages, timelines\n"
-        "• Use clear sub-headings and bullet points for rapid comprehension\n"
-        "• Maintain analytical objectivity while highlighting strategic implications\n"
-        "• Avoid industry jargon that may not be familiar to all executives\n"
-        "• Balance comprehensive coverage with concise, focused delivery\n"
-        "• Distinguish between confirmed trends and emerging possibilities\n\n"
-        
-        "**QUALITY ASSURANCE:**\n"
-        "• Synthesize information logically - don't simply concatenate reports\n"
-        "• Identify and reconcile conflicting information from multiple sources\n"
-        "• Highlight data limitations or gaps where appropriate\n"
-        "• Ensure all claims are substantiated by the source material\n"
-        "• Create coherent narrative flow between sections\n\n"
-        
-        "**REFERENCE HANDLING:**\n"
-        "Do NOT include inline citations or footnotes - a comprehensive reference list "
-        "will be automatically appended after your analysis.\n\n"
-        
-        "**DELIVERABLE:** A polished, professional Markdown report that serves as a "
-        "definitive market intelligence brief for strategic planning and decision-making."
+        "**DELIVERABLE:** A polished, professional Markdown report that can be directly used for the company's strategic planning session."
     )
 
     # Combine system instruction with user instruction since Gemini only accepts "user" and "model" roles
@@ -147,7 +108,7 @@ def synthesize_final_report(
     try:
         print("    - Calling Gemini for final synthesis...")
         stream = client.models.generate_content_stream(
-            model="gemini-2.5-pro-preview-06-05",
+            model="gemini-2.5-flash-preview-05-20",
             contents=contents,
             config=config_obj,
         )
