@@ -2,6 +2,7 @@
 import uuid
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 import requests
 from sqlalchemy.orm import Session
@@ -24,6 +25,21 @@ app = FastAPI(
     title="Market Research Automation API",
     description="An API to run an automated market research pipeline.",
     version="1.0.0"
+)
+
+# This is the crucial part. It allows your frontend to talk to the backend.
+origins = [
+    "http://localhost:5173", # Default Vite dev server port
+    "http://localhost:3000", # Common React dev server port
+    "http://localhost:5174", # Another possible Vite port
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"], # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"], # Allows all headers
 )
 
 # --- Database Initialization on Startup ---
