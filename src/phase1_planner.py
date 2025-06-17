@@ -1,6 +1,7 @@
 # src/phase1_planner.py
 import base64
 import os
+import logging
 from datetime import datetime
 from google import genai
 from google.genai import types
@@ -21,7 +22,7 @@ def generate_search_queries(user_input: str) -> dict[str, list[str]]:
         where each value is a list of search query strings.
         Returns empty lists for each category if generation fails.
     """
-    print("Phase 1: Generating search queries with Gemini...")
+    logging.info("Phase 1: Generating search queries with Gemini...")
 
     try:
         # 1. Instantiate the client using the API key from our config
@@ -131,21 +132,21 @@ JSON OUTPUT STRUCTURE:
                 cleaned_buckets[bucket_name] = cleaned_queries
                 total_queries += len(cleaned_queries)
             else:
-                print(f"Warning: LLM returned '{bucket_name}' but it was not a list. Using empty list.")
+                logging.warning(f"LLM returned '{bucket_name}' but it was not a list. Using empty list.")
                 cleaned_buckets[bucket_name] = []
 
-        print(f"Successfully generated and cleaned {total_queries} search queries across {len(cleaned_buckets)} buckets.")
+        logging.info(f"Successfully generated and cleaned {total_queries} search queries across {len(cleaned_buckets)} buckets.")
         return cleaned_buckets
 
     except json.JSONDecodeError as e:
-        print(f"Error: Failed to parse JSON from the LLM response. Error: {e}")
+        logging.error(f"Failed to parse JSON from the LLM response. Error: {e}")
         raw = None
         try:
             raw = response.candidates[0].content.parts[0].text
         except Exception:
             pass
-        print(f"----- LLM Raw Response -----\n{raw if raw is not None else 'No text in response'}\n--------------------------")
+        logging.error(f"----- LLM Raw Response -----\n{raw if raw is not None else 'No text in response'}\n--------------------------")
         return {k: [] for k in ["News","Patents","Conference","Legalnews","General"]}
     except Exception as e:
-        print(f"An unexpected error occurred during query generation: {e}")
+        logging.error(f"An unexpected error occurred during query generation: {e}")
         return {k: [] for k in ["News","Patents","Conference","Legalnews","General"]}

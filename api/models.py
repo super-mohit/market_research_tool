@@ -1,6 +1,7 @@
 # api/models.py
 from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel, Field
+from datetime import datetime
 
 # --- Request Models ---
 
@@ -107,3 +108,17 @@ class RAGCollectionInfo(BaseModel):
     collection_name: Optional[str] = Field(None, description="Name of the RAG collection if available")
     rag_error: Optional[str] = Field(None, description="Error message if upload failed")
     can_query: bool = Field(..., description="Whether the collection is ready for querying")
+
+
+# +++ NEW: Models for Job History +++
+class JobHistoryItem(BaseModel):
+    id: str
+    original_query: str
+    status: str
+    created_at: datetime  # We'll use this for display and sorting
+
+    class Config:
+        from_attributes = True
+
+class JobHistoryResponse(BaseModel):
+    jobs: List[JobHistoryItem]

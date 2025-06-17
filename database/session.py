@@ -1,22 +1,35 @@
-# database/session.py
+# File: database/session.py (Corrected Version)
+
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-# For production, read the database path from an environment variable.
-# For local development, it falls back to the original "sqlite:///./jobs.db".
+# Get the database URL from environment variables, defaulting to SQLite for local dev
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./jobs.db")
 
-# Add a print statement to be 100% sure which database is being used.
-print(f"💽 Connecting to database at: {DATABASE_URL}")
+# Hide sensitive parts of the URL for logging
+if "@" in DATABASE_URL:
+    log_db_url = DATABASE_URL.split('@')[-1]
+else:
+    log_db_url = DATABASE_URL
 
-# create_engine is the entry point to the database
-# connect_args is needed only for SQLite to allow multithreading
-engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False}
-)
+print(f"💽 Connecting to database at: {log_db_url}")
 
+# --- THIS IS THE CORRECTED LOGIC ---
+# Prepare keyword arguments for create_engine
+engine_args = {}
+
+# Only add the connect_args if we are using SQLite.
+if DATABASE_URL.startswith("sqlite"):
+    engine_args['connect_args'] = {"check_same_thread": False}
+
+# Create the engine, unpacking the arguments dictionary.
+# If it's not SQLite, the dictionary will be empty and no extra args are passed.
+engine = create_engine(DATABASE_URL, **engine_args)
+
+
+# --- The rest of the file is unchanged ---
 # Each instance of SessionLocal will be a database session.
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -27,7 +40,6 @@ Base = declarative_base()
 def init_db():
     print("Initializing database and creating tables (if they don't exist)...")
     # This will create tables for all models that inherit from Base
-    from database.models import Job  # Import model here
-    # THIS IS THE FIX: checkfirst=True tells SQLAlchemy to check for the table's existence before trying to create it.
+    from database.models import Job, User  # Import models here
     Base.metadata.create_all(bind=engine, checkfirst=True)
-    print("Database initialized.") 
+    print("Database initialized.")

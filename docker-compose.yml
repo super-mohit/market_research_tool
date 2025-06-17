@@ -1,0 +1,31 @@
+# File: docker-compose.yml
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine  # Use a specific, lightweight version
+    container_name: market_intel_db
+    restart: always
+    environment:
+      - POSTGRES_USER=market_user
+      - POSTGRES_PASSWORD=supervity
+      - POSTGRES_DB=market_intel_db
+    ports:
+      - "5432:5432" # Expose the DB port to your local machine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Add Redis to match your Render production setup
+  redis:
+    image: redis:7-alpine
+    container_name: market_intel_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes  # Enable persistence
+
+volumes:
+  postgres_data: # This ensures your data persists even if the container is removed
+  redis_data: # This ensures Redis data persists across container restarts

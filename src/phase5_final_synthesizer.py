@@ -3,6 +3,7 @@
 import os
 import re
 import datetime
+import logging
 from datetime import date
 from google import genai
 from google.genai import types
@@ -20,14 +21,14 @@ def synthesize_final_report(
     Consolidates intermediate sub-reports into a comprehensive Markdown report.
     """
     os.makedirs(output_dir, exist_ok=True)
-    print(f"\nPhase 5: Generating final report from {len(intermediate_reports_text)} intermediate documents...")
+    logging.info(f"\nPhase 5: Generating final report from {len(intermediate_reports_text)} intermediate documents...")
 
     if not intermediate_reports_text:
         return _create_fallback_report(original_user_query, output_dir, "No intermediate reports available")
 
     formatted_content = _format_intermediate_reports(intermediate_reports_text)
     if len(formatted_content) > 100_000:
-        print("    - Warning: content truncated for context limit")
+        logging.warning("    - Warning: content truncated for context limit")
         formatted_content = formatted_content[:100_000] + "\n\n[Content truncated due to length...]"
 
     client = genai.Client(api_key=config.GEMINI_API_KEY)
@@ -72,9 +73,10 @@ def synthesize_final_report(
         "    - Frame them as clear directives. Example: 'Recommend allocating an additional $5M in R&D to develop a proprietary scuff-resistant resin to counter Competitor X's new product launch' instead of 'We should invest in R&D.'\n\n"
         
         "**EXECUTIVE COMMUNICATION PROTOCOL:**\n"
-        "•   **Be Decisive:** Use strong, declarative sentences. Avoid hedging language.\n"
-        "•   **Quantify Everything:** Use all available figures, percentages, and timelines to support your analysis.\n"
-        "•   **Clarity and Brevity:** Use headings and bullet points. Assume your audience has only five minutes.\n"
+        "•   **Be Decisive & Direct:** Use strong, declarative sentences. Lead with the conclusion, then provide brief evidence. Avoid hedging language like 'it seems' or 'it could be'.\n"
+        "•   **Prioritize Brevity:** Use bullet points for everything possible. Each section should be scannable in seconds. The entire report should be digestible in under 5 minutes.\n"
+        "•   **Focus on Insight, Not Information:** Do not just list facts. State the insight derived from the fact. BAD: 'Company X launched a new product.' GOOD: 'Company X's new product launch directly threatens our market share in the premium segment, representing a potential 10% revenue risk.'\n"
+        "•   **Quantify Everything:** Use all available figures, percentages, and timelines to support your analysis. Estimate when necessary, and state that it is an estimate.\n"
         "•   **Reference Integrity:** Do NOT include inline citations. A reference list of the source URLs will be appended automatically.\n\n"
         
         "**DELIVERABLE:** A polished, professional Markdown report that can be directly used for the company's strategic planning session."
@@ -106,7 +108,7 @@ def synthesize_final_report(
     )
 
     try:
-        print("    - Calling Gemini for final synthesis...")
+        logging.info("    - Calling Gemini for final synthesis...")
         stream = client.models.generate_content_stream(
             model="gemini-2.5-flash-preview-05-20",
             contents=contents,
@@ -125,11 +127,11 @@ def synthesize_final_report(
         final_with_refs = _add_references_section(final_text, all_original_urls)
         filepath = _save_final_report(final_with_refs, original_user_query, output_dir)
 
-        print(f"✅ Final report saved to {filepath} ({len(final_with_refs):,} chars, {len(all_original_urls)} references)")
+        logging.info(f"✅ Final report saved to {filepath} ({len(final_with_refs):,} chars, {len(all_original_urls)} references)")
         return filepath
 
     except Exception as e:
-        print(f"❌ Gemini error: {e}")
+        logging.error(f"❌ Gemini error: {e}")
         return _create_fallback_report(original_user_query, output_dir, str(e), intermediate_reports_text)
 
 def _format_intermediate_reports(reports: list[str]) -> str:

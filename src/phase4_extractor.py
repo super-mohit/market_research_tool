@@ -12,12 +12,14 @@ import datetime
 from datetime import date
 import re
 import time
+import logging
 from google import genai
 from google.genai import types
 from src import config
 from src.constants import MAX_GEMINI_PARALLEL, EXTRACT_BATCH_SIZE
 from src import constants
 from dateutil import parser as dtparse
+from operator import itemgetter
 
 def _is_recent(date_str: str | None) -> bool:
     """
@@ -47,7 +49,7 @@ def extract_data_from_single_url_sync(
     Uses Gemini to extract structured items (news, Patents, conferences, Legalnews) from a URL.
     Returns parsed list of item dicts.
     """
-    print(f"    - Extracting from: {url}")
+    logging.info(f"    - Extracting from: {url}")
     try:
         # Get current date for context
         current_date = date.today()
@@ -115,23 +117,23 @@ def extract_data_from_single_url_sync(
         )
         
         if not response.candidates or not response.candidates[0].content or not response.candidates[0].content.parts:
-            print(f"      → No content part in Gemini response for: {url}")
+            logging.warning(f"      → No content part in Gemini response for: {url}")
             return []
             
         text_output = response.candidates[0].content.parts[0].text.strip()
         # Extract the JSON array substring
         match = re.search(r"\[.*\]", text_output, re.S)
         if not match:
-            print(f"      → No JSON array in response for: {url}\n        Response: {text_output[:100]}...")
+            logging.warning(f"      → No JSON array in response for: {url}\n        Response: {text_output[:100]}...")
             return []
         items = json.loads(match.group(0))
         return items if isinstance(items, list) else []
 
     except json.JSONDecodeError as e:
-        print(f"      → JSONDecodeError for URL {url}: {e}")
+        logging.error(f"      → JSONDecodeError for URL {url}: {e}")
         return []
     except Exception as e:
-        print(f"      → Error processing {url}: {e}")
+        logging.error(f"      → Error processing {url}: {e}")
         return []
 
 async def run_structured_extraction(
@@ -152,7 +154,7 @@ async def run_structured_extraction(
     Returns:
       Categorized dict of extracted items.
     """
-    print(f"\nPhase 4: Extracting structured data from {len(urls)} URLs in batches...")
+    logging.info(f"\nPhase 4: Extracting structured data from {len(urls)} URLs in batches...")
     os.makedirs(output_dir, exist_ok=True)
     
     # ————— fast concurrent extraction —————
@@ -171,7 +173,7 @@ async def run_structured_extraction(
     t0 = time.perf_counter()
     out_lists = await asyncio.gather(*(one(u) for u in urls))
     elapsed = time.perf_counter() - t0
-    print(f"✓ Phase 4 – extracted {len(urls)} URLs in {elapsed:0.1f}s "
+    logging.info(f"✓ Phase 4 – extracted {len(urls)} URLs in {elapsed:0.1f}s "
           f"({constants.MAX_GEMINI_PARALLEL} Gemini workers)")
     
     categorized = {k: [] for k in EXPECTED_CATEGORIES}
@@ -182,6 +184,17 @@ async def run_structured_extraction(
             if not _is_recent(item.get("date")):
                 # silently drop anything older than RECENT_YEARS
                 continue
+            
+            # --- Add a parsed date for sorting ---
+            # We'll parse the date string into a real date object.
+            # We add this temporarily and will remove it before saving.
+            try:
+                # The 'fuzzy=True' helps parse incomplete dates like "2024-05"
+                item['_parsed_date'] = dtparse.parse(item.get("date", ""), fuzzy=True)
+            except (dtparse.ParserError, TypeError):
+                # If date is invalid, default to a very old date so it goes to the bottom.
+                item['_parsed_date'] = datetime.datetime(1970, 1, 1)
+            
             # When normalising each item - use url2tag for type guessing
             item_type = (item.get("type") or url2tag.get(item.get("source_url"), "Other")) or "Other"
             item["type"] = item_type
@@ -189,6 +202,19 @@ async def run_structured_extraction(
             t = item.get("type", "Other")
             categorized.setdefault(t if t in EXPECTED_CATEGORIES else "Other", categorized["Other"]).append(item)
             total_items += 1
+
+    # --- Sorting Logic ---
+    # Now, iterate through each category and sort its list of items.
+    print("    - Sorting extracted items by date...")
+    for category in categorized:
+        # Sort the list in-place.
+        # `itemgetter` is slightly faster than a lambda function.
+        # `reverse=True` puts the newest dates first.
+        categorized[category].sort(key=itemgetter('_parsed_date'), reverse=True)
+        
+        # Clean up the temporary '_parsed_date' key from each item.
+        for item in categorized[category]:
+            del item['_parsed_date']
 
     # Prepare metadata and write output
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")

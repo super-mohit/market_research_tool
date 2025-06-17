@@ -1,6 +1,6 @@
 # src/phase2_searcher.py  (fully rewritten)
 
-import asyncio, re, time
+import asyncio, re, time, logging
 import httpx
 from datetime import date
 from src import config, constants
@@ -31,9 +31,9 @@ async def _single_cse(client: httpx.AsyncClient, query: str, bucket: str,
             r.raise_for_status()
             items = r.json().get("items", [])
             return [(it["link"], bucket) for it in items]
-        print(f"⚠️  CSE error {e.response.status_code} for query #{idx}: {query[:60]}")
+        logging.warning(f"CSE error {e.response.status_code} for query #{idx}: {query[:60]}")
     except Exception as e:
-        print(f"⚠️  {e} on query #{idx}")
+        logging.warning(f"{e} on query #{idx}")
     return []
 
 async def execute_cse_searches(queries_by_type: dict[str, list[str]],
@@ -70,6 +70,6 @@ async def execute_cse_searches(queries_by_type: dict[str, list[str]],
                 tagset.add((link, bucket))
 
     elapsed = time.perf_counter() - t0
-    print(f"✓ Phase 2 – {len(tagset)} unique URLs in {elapsed:0.1f}s "
+    logging.info(f"Phase 2 – {len(tagset)} unique URLs in {elapsed:0.1f}s "
           f"({len(flat)} queries, {max_concurrency} concurrency)")
     return list(tagset)

@@ -2,6 +2,7 @@
 import json
 import asyncio
 import time
+import logging
 from concurrent.futures import ThreadPoolExecutor
 import os
 from typing import Callable, Any  # <-- Import Callable and Any
@@ -27,7 +28,7 @@ async def execute_research_pipeline(
     """
     assert_all_env()
     start_time = time.perf_counter()
-    print(f"--- Starting Optimized Pipeline for query: '{user_query[:50]}...' ---")
+    logging.info(f"--- Starting Optimized Pipeline for query: '{user_query[:50]}...' ---")
     
     # Phase 1 & 2 unchanged...
     await update_status(stage="planning", progress=10, message="Analyzing request and planning search strategies...")
@@ -36,14 +37,14 @@ async def execute_research_pipeline(
         raise ValueError("Pipeline Error: No search queries were generated.")
     
     total_queries = sum(len(queries) for queries in search_queries.values())
-    print(f"-> Phase 1 Complete: {total_queries} queries generated.")
+    logging.info(f"-> Phase 1 Complete: {total_queries} queries generated.")
     
     await update_status(stage="searching", progress=25, message=f"Scouring {total_queries} web sources...")
     tagged_urls = await execute_cse_searches(search_queries)
     if not tagged_urls:
         raise ValueError("Pipeline Error: No URLs were collected from search.")
     
-    print(f"-> Phase 2 Complete: {len(tagged_urls)} URLs collected.")
+    logging.info(f"-> Phase 2 Complete: {len(tagged_urls)} URLs collected.")
     
     # Prepare URL buckets
     bucketed: dict[str, list[str]] = {}
@@ -63,7 +64,7 @@ async def execute_research_pipeline(
               {u: "Conference" for u in conf_urls} | \
               {u: "Legalnews" for u in legalnews_urls}
     
-    print(f"-> URL Distribution: Report={len(report_urls)}, Extract={len(extract_urls)}")
+    logging.info(f"-> URL Distribution: Report={len(report_urls)}, Extract={len(extract_urls)}")
 
     # 🔥 CRITICAL CHANGE: Start extraction and synthesis in parallel
     await update_status(stage="synthesizing", progress=50, message="Starting parallel analysis...")
@@ -86,13 +87,13 @@ async def execute_research_pipeline(
     )
     
     # Wait for both to complete
-    print("-> Running extraction and synthesis in parallel...")
+    logging.info("-> Running extraction and synthesis in parallel...")
     intermediate_reports, extraction_payload = await asyncio.gather(
         intermediate_reports_task,
         extraction_task
     )
     
-    print(f"-> Parallel processing complete.")
+    logging.info(f"-> Parallel processing complete.")
     
     # Final synthesis
     await update_status(stage="compiling", progress=85, message="Generating final report...")
@@ -112,7 +113,7 @@ async def execute_research_pipeline(
         final_report_content = "Error: Final report could not be generated or found."
 
     elapsed = time.perf_counter() - start_time
-    print(f"--- Optimized Pipeline complete in {elapsed:.2f} seconds ---")
+    logging.info(f"--- Optimized Pipeline complete in {elapsed:.2f} seconds ---")
 
     return {
         "original_query": user_query,
@@ -136,16 +137,16 @@ Datasources/URLs (https://www.paint.org/ , https://www.coatingsworld.com/ , http
     async def main():
         # Dummy callback for standalone testing
         async def dummy_callback(stage: str, progress: int, message: str):
-            print(f"[{progress}%] {stage}: {message}")
+            logging.info(f"[{progress}%] {stage}: {message}")
         
         try:
             results = await execute_research_pipeline(USER_QUERY, dummy_callback)
-            print("\n\n--- PIPELINE RESULT ---")
-            print("\n## FINAL REPORT (Snippet) ##")
-            print(results['final_report_markdown'][:500] + "...")
-            print("\n## EXTRACTED DATA (Summary) ##")
-            print(json.dumps(results['metadata']['extraction_summary'], indent=2))
+            logging.info("\n\n--- PIPELINE RESULT ---")
+            logging.info("\n## FINAL REPORT (Snippet) ##")
+            logging.info(results['final_report_markdown'][:500] + "...")
+            logging.info("\n## EXTRACTED DATA (Summary) ##")
+            logging.info(json.dumps(results['metadata']['extraction_summary'], indent=2))
         except Exception as e:
-            print(f"An error occurred: {e}")
+            logging.error(f"An error occurred: {e}")
 
     asyncio.run(main())

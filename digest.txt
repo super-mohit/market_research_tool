@@ -1,14 +1,20 @@
 Directory structure:
 └── market_research_tool/
     ├── README.md
+    ├── build.sh
+    ├── celery_worker.py
+    ├── docker-compose.yml
     ├── jobs.db
     ├── make_ingest.py
     ├── requirements.txt
     ├── .env.example
     ├── api/
     │   ├── __init__.py
+    │   ├── auth.py
+    │   ├── logging_config.py
     │   ├── models.py
     │   ├── server.py
+    │   ├── sheets_logger.py
     │   └── __pycache__/
     ├── database/
     │   ├── __init__.py
@@ -26,6 +32,7 @@ Directory structure:
         ├── phase4_extractor.py
         ├── phase5_final_synthesizer.py
         ├── rag_uploader.py
+        ├── tasks.py
         └── __pycache__/
 
 ================================================
@@ -340,6 +347,85 @@ Distributed under the **MIT License**. See `LICENSE` for details.
 
 
 ================================================
+File: build.sh
+================================================
+#!/usr/bin/env bash
+# File: build.sh
+
+# exit on error
+set -o errexit
+
+pip install --upgrade pip
+pip install -r requirements.txt 
+
+
+================================================
+File: celery_worker.py
+================================================
+# File: celery_worker.py (in the root directory)
+import os
+from celery import Celery
+from dotenv import load_dotenv
+
+# Load .env file for local development
+load_dotenv()
+
+# --- MODIFIED FOR RENDER ---
+# Render provides the REDIS_URL environment variable automatically when services are linked.
+# We fall back to the local .env variable for development.
+redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+
+# Create the Celery app instance
+# The first argument is the name of the current module.
+# The `broker` argument specifies the URL of the message broker (Redis).
+# The `backend` argument is used to store task results. We'll also use Redis for this.
+celery_app = Celery(
+    "tasks",
+    broker=redis_url,
+    backend=redis_url
+)
+
+# Optional: Configure Celery to automatically discover tasks
+# It will look for tasks in a file named `tasks.py` inside any installed apps.
+# For our structure, we will explicitly define the task path.
+celery_app.conf.update(
+    task_serializer='json',
+    result_serializer='json',
+    accept_content=['json'],
+    timezone='UTC',
+    enable_utc=True,
+)
+
+# This is where we will tell Celery where to find our task function.
+# We will create this file in the next step.
+celery_app.autodiscover_tasks(['src.tasks']) 
+
+
+================================================
+File: docker-compose.yml
+================================================
+# File: docker-compose.yml
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine  # Use a specific, lightweight version
+    container_name: market_intel_db
+    restart: always
+    environment:
+      - POSTGRES_USER=market_user
+      - POSTGRES_PASSWORD=supervity
+      - POSTGRES_DB=market_intel_db
+    ports:
+      - "5432:5432" # Expose the DB port to your local machine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data: # This ensures your data persists even if the container is removed
+
+
+================================================
 File: jobs.db
 ================================================
 [Non-text file]
@@ -413,8 +499,14 @@ googleapis-common-protos==1.70.0
 h11==0.16.0
 httpcore==1.0.9
 reportlab
+gunicorn==22.0.0
 httplib2==0.22.0
-httpx==0.28.1
+httpx[http2]==0.28.1
+celery==5.4.0
+redis==5.0.4
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+psycopg2-binary==2.9.9
 idna==3.10
 sqlalchemy==2.0.31
 proto-plus==1.26.1
@@ -456,6 +548,10 @@ RAG_API_BASE_URL=https://your-rag-api-base-url.com
 RAG_API_TOKEN=your_rag_api_token_here
 RAG_API_ORG_ID=your_organization_id_here
 RAG_API_USER_TYPE=pro
+SECRET_KEY=your_super_secret_string_here_change_this_in_production_12345
+SHEETS_WEB_APP_URL=the_url_you_just_copied
+DATABASE_URL=postgres://
+REDIS_URL=redis://
 
 # =============================================================================
 
@@ -467,11 +563,127 @@ File: api/__init__.py
 
 
 ================================================
+File: api/auth.py
+================================================
+# File: api/auth.py
+
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+import os
+import uuid
+
+# --- Configuration ---
+SECRET_KEY = os.getenv("SECRET_KEY", "a_very_secret_key_that_you_should_change") # Add this to your .env
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
+
+# --- Password Hashing ---
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# --- OAuth2 Scheme ---
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
+
+# --- Utility Functions ---
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+# --- Dependency to Get Current User ---
+# This will be used to protect our endpoints
+from sqlalchemy.orm import Session
+from database.session import SessionLocal
+from database.models import User as DBUser
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> DBUser:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    
+    user = db.query(DBUser).filter(DBUser.id == user_id).first()
+    if user is None:
+        raise credentials_exception
+    return user 
+
+
+================================================
+File: api/logging_config.py
+================================================
+# File: api/logging_config.py (NEW FILE)
+import logging
+import sys
+
+def setup_logging():
+    """
+    Configures logging for the application to output structured logs to stdout.
+    """
+    # Get the root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO) # Set the minimum level of logs to capture
+
+    # Remove any existing handlers to avoid duplicate logs
+    if root_logger.hasHandlers():
+        root_logger.handlers.clear()
+
+    # Create a handler to write to standard output (console)
+    handler = logging.StreamHandler(sys.stdout)
+    
+    # Create a formatter that outputs logs in a structured, readable format
+    # We include timestamp, log level, logger name, and the message.
+    formatter = logging.Formatter(
+        '%(asctime)s - %(levelname)s - [%(name)s] - %(message)s'
+    )
+    handler.setFormatter(formatter)
+
+    # Add the handler to the root logger
+    root_logger.addHandler(handler)
+
+    # Set the logging level for libraries that are too verbose
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
+    # Log a confirmation message
+    logging.info("Logging configured successfully.") 
+
+
+================================================
 File: api/models.py
 ================================================
 # api/models.py
 from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel, Field
+from datetime import datetime
 
 # --- Request Models ---
 
@@ -580,32 +792,74 @@ class RAGCollectionInfo(BaseModel):
     can_query: bool = Field(..., description="Whether the collection is ready for querying")
 
 
+# +++ NEW: Models for Job History +++
+class JobHistoryItem(BaseModel):
+    id: str
+    original_query: str
+    status: str
+    created_at: datetime  # We'll use this for display and sorting
+
+    class Config:
+        from_attributes = True
+
+class JobHistoryResponse(BaseModel):
+    jobs: List[JobHistoryItem]
+
+
 ================================================
 File: api/server.py
 ================================================
 # api/server.py
 import uuid
-from fastapi import FastAPI, BackgroundTasks, HTTPException, Request, Depends
+import os  # Add this import
+import logging
+from fastapi import FastAPI, HTTPException, Request, Depends, status
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordRequestForm
 import asyncio
 import json
 import requests
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, desc
+from pydantic import BaseModel, EmailStr
+
+# --- Logging Import ---
+from api.logging_config import setup_logging
+from api.sheets_logger import log_event
 
 # --- DB Imports ---
 from database.session import SessionLocal, init_db, engine
-from database.models import Job as DBJob # Use an alias to avoid name conflicts
+from database.models import Job as DBJob, User as DBUser # Use aliases to avoid name conflicts
+
+# --- Auth Imports ---
+from api import auth  # Our new auth module
 
 # --- App Imports ---
 from api.models import (
     ResearchRequest, JobSubmissionResponse, JobStatusResponse, ResearchResult, ExtractedData,
-    RAGQueryRequest, RAGQueryResponse, RAGCollectionInfo
+    RAGQueryRequest, RAGQueryResponse, RAGCollectionInfo, JobHistoryResponse
 )
-from src.main import execute_research_pipeline
 from src.config import assert_all_env, assert_rag_env
-from src.rag_uploader import upload_artifacts_to_rag, query_rag_collection
+from src.rag_uploader import query_rag_collection
+
+# +++ Import the Celery task +++
+from src.tasks import run_research_pipeline_task
+
+# +++ NEW: Pydantic models for auth +++
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserPublic(BaseModel):
+    id: str
+    email: EmailStr
+    class Config:
+        from_attributes = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
 
 # --- App Setup ---
 app = FastAPI(
@@ -615,11 +869,19 @@ app = FastAPI(
 )
 
 # This is the crucial part. It allows your frontend to talk to the backend.
+# We will get the production URL from an environment variable.
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173") 
+
 origins = [
     "http://localhost:5173", # Default Vite dev server port
     "http://localhost:3000", # Common React dev server port
     "http://localhost:5174", # Another possible Vite port
+    FRONTEND_URL, # Add your production URL here
 ]
+
+# Remove any duplicates if FRONTEND_URL is a localhost one
+origins = list(set(origins)) 
+logging.info(f"Allowing origins: {origins}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -629,9 +891,10 @@ app.add_middleware(
     allow_headers=["*"], # Allows all headers
 )
 
-# --- Database Initialization on Startup ---
+# --- Database Initialization and Logging on Startup ---
 @app.on_event("startup")
 def on_startup():
+    setup_logging()  # Set up logging first
     init_db()
 
 # --- Dependency to get a DB session ---
@@ -642,116 +905,46 @@ def get_db():
     finally:
         db.close()
 
-# --- Background Task (Now DB-aware) ---
-def run_and_store_results(job_id: str, query: str, should_upload_to_rag: bool):
-    """
-    🔥 FIXED: Job processing with immediate completion and parallel RAG upload
-    """
-    db = SessionLocal()
-    try:
-        job = db.query(DBJob).filter(DBJob.id == job_id).first()
-        if not job:
-            print(f"Job {job_id} not found in DB for background task. Aborting.")
-            return
-
-        print(f"Job {job_id}: Starting research pipeline...")
-        job.status = 'running'
-        job.job_stage = 'initializing'
-        job.job_progress = 5
-        db.commit()
-
-        async def update_status_in_db(stage: str = None, progress: int = None, message: str = None):
-            db_session = SessionLocal()
-            try:
-                job_to_update = db_session.query(DBJob).filter(DBJob.id == job_id).first()
-                if job_to_update:
-                    if stage: 
-                        job_to_update.job_stage = stage
-                    if progress: 
-                        job_to_update.job_progress = progress
-                    if message:
-                        if job_to_update.logs is None:
-                            job_to_update.logs = []
-                        job_to_update.logs = job_to_update.logs + [message]
-                    db_session.commit()
-            except Exception as e:
-                print(f"Error updating job status: {e}")
-            finally:
-                db_session.close()
-            await asyncio.sleep(0)
-
-        # Run the research pipeline
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        try:
-            result_data = loop.run_until_complete(
-                execute_research_pipeline(query, update_status_in_db)
-            )
-        finally:
-            loop.close()
-        
-        # 🔥 CRITICAL: Mark job as completed IMMEDIATELY
-        print(f"Job {job_id}: Pipeline completed. Marking as COMPLETED immediately...")
-        job.result = result_data
-        job.status = 'completed'  # This is the key change
-        job.job_stage = 'finished'
-        job.job_progress = 100
-        
-        # 🔥 CRITICAL: Set RAG status properly
-        if should_upload_to_rag:
-            job.upload_to_rag = True
-            job.rag_status = 'pending_upload'
-        else:
-            job.upload_to_rag = False
-            job.rag_status = 'not_requested'
-        
-        db.commit()
-        print(f"Job {job_id}: ✅ Status set to COMPLETED. Frontend can now detect completion.")
-        
-        # 🔥 CRITICAL: Start RAG upload in background thread (doesn't block completion)
-        if should_upload_to_rag:
-            print(f"Job {job_id}: Starting RAG upload in background...")
-            
-            def run_rag_upload():
-                try:
-                    collection_name = upload_artifacts_to_rag(job_id, result_data)
-                    
-                    # Update RAG status
-                    with SessionLocal() as rag_db:
-                        rag_job = rag_db.query(DBJob).filter(DBJob.id == job_id).first()
-                        if rag_job:
-                            if collection_name:
-                                rag_job.rag_collection_name = collection_name
-                                rag_job.rag_status = 'uploaded'
-                                print(f"Job {job_id}: ✅ RAG upload successful. Collection: {collection_name}")
-                            else:
-                                rag_job.rag_status = 'failed'
-                                rag_job.rag_error = 'RAG upload failed'
-                                print(f"Job {job_id}: ❌ RAG upload failed")
-                            rag_db.commit()
-                except Exception as rag_error:
-                    print(f"Job {job_id}: RAG error: {rag_error}")
-                    with SessionLocal() as rag_db:
-                        rag_job = rag_db.query(DBJob).filter(DBJob.id == job_id).first()
-                        if rag_job:
-                            rag_job.rag_status = 'failed'
-                            rag_job.rag_error = str(rag_error)
-                            rag_db.commit()
-            
-            import threading
-            rag_thread = threading.Thread(target=run_rag_upload, daemon=True)
-            rag_thread.start()
+# +++ NEW: Auth Endpoints +++
+@app.post("/api/auth/signup", response_model=UserPublic)
+def signup(user_in: UserCreate, db: Session = Depends(get_db)):
+    db_user = db.query(DBUser).filter(DBUser.email == user_in.email).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
     
-    except Exception as e:
-        print(f"Job {job_id}: ❌ Pipeline failed: {e}")
-        job.status = 'failed'
-        job.job_stage = 'error'
-        job.job_progress = 0
-        job.result = {"error": str(e)}
-        db.commit()
-    finally:
-        db.close()
+    hashed_password = auth.get_password_hash(user_in.password)
+    new_user = DBUser(
+        id=str(uuid.uuid4()),
+        email=user_in.email, 
+        hashed_password=hashed_password
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    # +++ Add Logging +++
+    log_event("user_signup", user_id=new_user.id, details={"email": new_user.email})
+
+    return new_user
+
+@app.post("/api/auth/token", response_model=Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = db.query(DBUser).filter(DBUser.email == form_data.username).first()
+    if not user or not auth.verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # +++ Add Logging +++
+    log_event("user_login", user_id=user.id)
+    
+    access_token = auth.create_access_token(data={"sub": user.id})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+# --- Background Task (Moved to Celery) ---
+# The run_and_store_results function has been moved to src/tasks.py as a Celery task
 
 
 def _dict_to_extracted_model(raw_dict: dict) -> ExtractedData:
@@ -765,8 +958,8 @@ def _dict_to_extracted_model(raw_dict: dict) -> ExtractedData:
 async def create_research_job(
     request: Request,
     research_request: ResearchRequest,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db) # <-- Dependency Injection
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(auth.get_current_user) # <-- PROTECT THE ROUTE
 ):
     assert_all_env()
     if research_request.upload_to_rag:
@@ -784,18 +977,31 @@ async def create_research_job(
         status="pending",
         original_query=research_request.query,
         upload_to_rag=research_request.upload_to_rag,
-        rag_status="pending" if research_request.upload_to_rag else None
+        rag_status="pending" if research_request.upload_to_rag else None,
+        user_id=current_user.id  # <-- LINK THE JOB TO THE USER
     )
     db.add(new_job)
     db.commit()
     db.refresh(new_job)
 
-    background_tasks.add_task(
-        run_and_store_results,
-        job_id,
-        research_request.query,
-        research_request.upload_to_rag
+    # +++ Add Logging +++
+    log_event(
+        "job_created", 
+        user_id=current_user.id, 
+        job_id=new_job.id, 
+        query=new_job.original_query,
+        details={"upload_to_rag": new_job.upload_to_rag}
     )
+
+    # --- THIS IS THE KEY CHANGE ---
+    # Instead of using BackgroundTasks, we send the job to the Celery queue.
+    # The .delay() method is a shortcut to send a task message.
+    run_research_pipeline_task.delay(
+        job_id=job_id,
+        query=research_request.query,
+        should_upload_to_rag=research_request.upload_to_rag
+    )
+    logging.info(f"Dispatched job {job_id} to Celery worker.")
 
     return {
         "job_id": job_id,
@@ -806,10 +1012,14 @@ async def create_research_job(
 
 
 @app.get("/api/research/status/{job_id}", response_model=JobStatusResponse)
-async def get_research_status(job_id: str, db: Session = Depends(get_db)):
+async def get_research_status(job_id: str, db: Session = Depends(get_db), current_user: DBUser = Depends(auth.get_current_user)):
     job = db.query(DBJob).filter(DBJob.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Check if the job belongs to the current user
+    if job.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied: Job belongs to another user")
 
     # --- MODIFIED: Construct a more detailed message and response ---
     message = f"Job status is {job.status}"
@@ -841,7 +1051,7 @@ async def get_research_status(job_id: str, db: Session = Depends(get_db)):
 
 
 @app.get("/api/research/result/{job_id}", response_model=ResearchResult)
-async def get_research_result(job_id: str):
+async def get_research_result(job_id: str, current_user: DBUser = Depends(auth.get_current_user)):
     """
     🔥 FIXED: Result endpoint with proper RAG info
     """
@@ -850,6 +1060,10 @@ async def get_research_result(job_id: str):
         job = db.query(DBJob).filter(DBJob.id == job_id).first()
         if not job:
             raise HTTPException(status_code=404, detail="Job not found")
+        
+        # Check if the job belongs to the current user
+        if job.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied: Job belongs to another user")
         
         if job.status == 'pending' or job.status == 'running':
             raise HTTPException(status_code=202, detail="Job still in progress")
@@ -872,7 +1086,7 @@ async def get_research_result(job_id: str):
                 'rag_error': job.rag_error,
                 'can_query': job.rag_status == 'uploaded'
             }
-            print(f"Job {job_id}: RAG Info - Status: {job.rag_status}, Can Query: {job.rag_status == 'uploaded'}")
+            logging.info(f"Job {job_id}: RAG Info - Status: {job.rag_status}, Can Query: {job.rag_status == 'uploaded'}")
         else:
             enhanced_metadata['ragInfo'] = {
                 'upload_requested': False,
@@ -894,14 +1108,38 @@ async def get_research_result(job_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error retrieving job result {job_id}: {e}")
+        logging.error(f"Error retrieving job result {job_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to retrieve job result: {str(e)}")
     finally:
         db.close()
 
 
+# +++ NEW: Endpoint to get user's job history +++
+@app.get("/api/research/history", response_model=JobHistoryResponse)
+async def get_user_research_history(
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(auth.get_current_user)
+):
+    """
+    Retrieves a list of all research jobs submitted by the current user.
+    """
+    # Query the database for jobs belonging to the current user,
+    # ordering by the creation date in descending order (newest first).
+    jobs = (
+        db.query(DBJob)
+        .filter(DBJob.user_id == current_user.id)
+        .order_by(desc(DBJob.created_at))
+        .all()
+    )
+    
+    if not jobs:
+        return {"jobs": []}  # Return an empty list if no jobs are found
+        
+    return {"jobs": jobs}
+
+
 @app.post("/api/rag/query", response_model=RAGQueryResponse)
-async def ask_rag_collection(query_request: RAGQueryRequest, db: Session = Depends(get_db)):
+async def ask_rag_collection(query_request: RAGQueryRequest, db: Session = Depends(get_db), current_user: DBUser = Depends(auth.get_current_user)):
     try:
         assert_rag_env()
 
@@ -909,9 +1147,13 @@ async def ask_rag_collection(query_request: RAGQueryRequest, db: Session = Depen
         job = db.query(DBJob).filter(DBJob.rag_collection_name == query_request.collection_name).first()
         if not job:
             raise HTTPException(status_code=404, detail=f"Collection '{query_request.collection_name}' not associated with any known job.")
+        
+        # Check if the job belongs to the current user
+        if job.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied: Collection belongs to another user")
 
-        print(f"Processing RAG query for collection: {query_request.collection_name}")
-        print(f"Question: {query_request.question}")
+        logging.info(f"Processing RAG query for collection: {query_request.collection_name}")
+        logging.info(f"Question: {query_request.question}")
 
         # Pass the current context from the DB
         answer_payload = query_rag_collection(
@@ -920,7 +1162,7 @@ async def ask_rag_collection(query_request: RAGQueryRequest, db: Session = Depen
             current_chat_context=job.rag_chat_context # Pass current context
         )
 
-        print(f"RAG API returned: {answer_payload}")
+        logging.info(f"RAG API returned: {answer_payload}")
 
         # Update the chat context in the DB
         if answer_payload and 'chat_context' in answer_payload:
@@ -936,29 +1178,33 @@ async def ask_rag_collection(query_request: RAGQueryRequest, db: Session = Depen
             answer=answer_payload
         )
         
-        print(f"Returning response: {response.dict()}")
+        logging.info(f"Returning response: {response.dict()}")
         return response
         
     except ValueError as e:
-        print(f"RAG configuration error: {str(e)}")
+        logging.error(f"RAG configuration error: {str(e)}")
         raise HTTPException(status_code=400, detail=f"RAG system not properly configured: {str(e)}")
     except requests.exceptions.HTTPError as e:
         status_code = e.response.status_code if e.response else 500
         error_detail = e.response.text if e.response else str(e)
-        print(f"RAG API HTTP error: {status_code} - {error_detail}")
+        logging.error(f"RAG API HTTP error: {status_code} - {error_detail}")
         raise HTTPException(status_code=status_code, detail=f"Error from RAG API: {error_detail}")
     except Exception as e:
-        print(f"Unexpected error in RAG query: {str(e)}")
+        logging.error(f"Unexpected error in RAG query: {str(e)}", exc_info=True)
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"An internal error occurred: {str(e)}")
 
 
 @app.get("/api/research/{job_id}/rag", response_model=RAGCollectionInfo)
-async def get_job_rag_info(job_id: str, db: Session = Depends(get_db)):
+async def get_job_rag_info(job_id: str, db: Session = Depends(get_db), current_user: DBUser = Depends(auth.get_current_user)):
     job = db.query(DBJob).filter(DBJob.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Check if the job belongs to the current user
+    if job.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied: Job belongs to another user")
     
     if not job.upload_to_rag:
         raise HTTPException(status_code=400, detail="RAG upload was not requested for this job")
@@ -1023,8 +1269,64 @@ async def job_update_generator(job_id: str):
 
 # --- NEW: SSE Endpoint ---
 @app.get("/api/research/stream/{job_id}")
-async def stream_research_status(job_id: str):
+async def stream_research_status(job_id: str, current_user: DBUser = Depends(auth.get_current_user)):
+    # Verify the job belongs to the current user before streaming
+    db = SessionLocal()
+    try:
+        job = db.query(DBJob).filter(DBJob.id == job_id).first()
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        # Check if the job belongs to the current user
+        if job.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied: Job belongs to another user")
+    finally:
+        db.close()
+    
     return StreamingResponse(job_update_generator(job_id), media_type="text/event-stream")
+
+
+================================================
+File: api/sheets_logger.py
+================================================
+import requests
+import os
+import logging
+import threading
+
+# Get the URL from environment variables
+SHEETS_WEB_APP_URL = os.getenv("SHEETS_WEB_APP_URL")
+
+def log_event(event: str, user_id: str = None, job_id: str = None, query: str = None, details: dict = None):
+    """
+    Sends a log event to a Google Sheets Web App.
+    Runs in a non-blocking background thread.
+    """
+    if not SHEETS_WEB_APP_URL:
+        # Log a warning if the feature is used but not configured
+        logging.warning("SHEETS_WEB_APP_URL is not set. Skipping Google Sheets logging.")
+        return
+
+    payload = {
+        "event": event,
+        "userId": user_id,
+        "jobId": job_id,
+        "query": query,
+        "details": details or {}
+    }
+    
+    def send_request():
+        """The function that will run in the background thread."""
+        try:
+            response = requests.post(SHEETS_WEB_APP_URL, json=payload, timeout=10)
+            response.raise_for_status()
+            logging.info(f"Successfully logged event '{event}' to Google Sheets.")
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Failed to log event to Google Sheets: {e}")
+
+    # Run the request in a daemon thread so it doesn't block the API response
+    thread = threading.Thread(target=send_request, daemon=True)
+    thread.start() 
 
 
 
@@ -1039,9 +1341,25 @@ File: database/__init__.py
 File: database/models.py
 ================================================
 # database/models.py
-from sqlalchemy import Column, String, JSON, Boolean, Text, Integer
+from sqlalchemy import Column, String, JSON, Boolean, Text, Integer, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+from datetime import datetime
 from database.session import Base
 
+# +++ NEW User Model +++
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # This creates the link back to the Job model
+    jobs = relationship("Job", back_populates="owner")
+
+
+# --- MODIFIED Job Model ---
 class Job(Base):
     __tablename__ = "jobs"
 
@@ -1049,10 +1367,8 @@ class Job(Base):
     id = Column(String, primary_key=True, index=True)
     status = Column(String, index=True, default="pending")
     original_query = Column(Text)
-    
-    # Stores the final research result dictionary as a JSON object
-    # This is incredibly flexible.
     result = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
     
     # RAG-specific details
     upload_to_rag = Column(Boolean, default=False)
@@ -1070,25 +1386,46 @@ class Job(Base):
     # --- NEW: Add this column to store live logs ---
     logs = Column(JSON, default=[]) 
 
+    # +++ NEW: Link to the User model +++
+    user_id = Column(String, ForeignKey("users.id"))
+    owner = relationship("User", back_populates="jobs") 
+
 
 ================================================
 File: database/session.py
 ================================================
-# database/session.py
+# File: database/session.py (Corrected Version)
+
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-# The database file will be created in the project root
-DATABASE_URL = "sqlite:///./jobs.db"
+# Get the database URL from environment variables, defaulting to SQLite for local dev
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./jobs.db")
 
-# create_engine is the entry point to the database
-# connect_args is needed only for SQLite to allow multithreading
-engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False}
-)
+# Hide sensitive parts of the URL for logging
+if "@" in DATABASE_URL:
+    log_db_url = DATABASE_URL.split('@')[-1]
+else:
+    log_db_url = DATABASE_URL
 
+print(f"💽 Connecting to database at: {log_db_url}")
+
+# --- THIS IS THE CORRECTED LOGIC ---
+# Prepare keyword arguments for create_engine
+engine_args = {}
+
+# Only add the connect_args if we are using SQLite.
+if DATABASE_URL.startswith("sqlite"):
+    engine_args['connect_args'] = {"check_same_thread": False}
+
+# Create the engine, unpacking the arguments dictionary.
+# If it's not SQLite, the dictionary will be empty and no extra args are passed.
+engine = create_engine(DATABASE_URL, **engine_args)
+
+
+# --- The rest of the file is unchanged ---
 # Each instance of SessionLocal will be a database session.
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -1097,11 +1434,11 @@ Base = declarative_base()
 
 # Function to create all tables in the database
 def init_db():
-    print("Initializing database and creating tables...")
+    print("Initializing database and creating tables (if they don't exist)...")
     # This will create tables for all models that inherit from Base
-    from database.models import Job  # Import model here
-    Base.metadata.create_all(bind=engine)
-    print("Database initialized.") 
+    from database.models import Job, User  # Import models here
+    Base.metadata.create_all(bind=engine, checkfirst=True)
+    print("Database initialized.")
 
 
 
@@ -1177,12 +1514,12 @@ File: src/constants.py
 # -------------------------------------------------
 #  Global throttling & limit switches for the pipeline
 # -------------------------------------------------
-MAX_SEARCH_RESULTS   = 2        # items per Google-CSE query
-MAX_SEARCH_WORKERS   = 30    # parallel threads for CSE calls
+MAX_SEARCH_RESULTS   = 4        # items per Google-CSE query
+MAX_SEARCH_WORKERS   = 18    # parallel threads for CSE calls
 
-MAX_GENERAL_FOR_REPORT = 9  # cap "General" URLs that feed the executive report
+MAX_GENERAL_FOR_REPORT = 18  # cap "General" URLs that feed the executive report
 
-MAX_PER_BUCKET_EXTRACT = 3   # News / Patents / Conf / Legalnews
+MAX_PER_BUCKET_EXTRACT = 6   # News / Patents / Conf / Legalnews
 EXTRACT_BATCH_SIZE     = 18  # 2 × batches → 18 URLs each
 MAX_GEMINI_PARALLEL    = 30  # concurrent Gemini requests in extractor
 
@@ -1198,6 +1535,7 @@ File: src/main.py
 import json
 import asyncio
 import time
+import logging
 from concurrent.futures import ThreadPoolExecutor
 import os
 from typing import Callable, Any  # <-- Import Callable and Any
@@ -1223,7 +1561,7 @@ async def execute_research_pipeline(
     """
     assert_all_env()
     start_time = time.perf_counter()
-    print(f"--- Starting Optimized Pipeline for query: '{user_query[:50]}...' ---")
+    logging.info(f"--- Starting Optimized Pipeline for query: '{user_query[:50]}...' ---")
     
     # Phase 1 & 2 unchanged...
     await update_status(stage="planning", progress=10, message="Analyzing request and planning search strategies...")
@@ -1232,14 +1570,14 @@ async def execute_research_pipeline(
         raise ValueError("Pipeline Error: No search queries were generated.")
     
     total_queries = sum(len(queries) for queries in search_queries.values())
-    print(f"-> Phase 1 Complete: {total_queries} queries generated.")
+    logging.info(f"-> Phase 1 Complete: {total_queries} queries generated.")
     
     await update_status(stage="searching", progress=25, message=f"Scouring {total_queries} web sources...")
     tagged_urls = await execute_cse_searches(search_queries)
     if not tagged_urls:
         raise ValueError("Pipeline Error: No URLs were collected from search.")
     
-    print(f"-> Phase 2 Complete: {len(tagged_urls)} URLs collected.")
+    logging.info(f"-> Phase 2 Complete: {len(tagged_urls)} URLs collected.")
     
     # Prepare URL buckets
     bucketed: dict[str, list[str]] = {}
@@ -1259,7 +1597,7 @@ async def execute_research_pipeline(
               {u: "Conference" for u in conf_urls} | \
               {u: "Legalnews" for u in legalnews_urls}
     
-    print(f"-> URL Distribution: Report={len(report_urls)}, Extract={len(extract_urls)}")
+    logging.info(f"-> URL Distribution: Report={len(report_urls)}, Extract={len(extract_urls)}")
 
     # 🔥 CRITICAL CHANGE: Start extraction and synthesis in parallel
     await update_status(stage="synthesizing", progress=50, message="Starting parallel analysis...")
@@ -1282,13 +1620,13 @@ async def execute_research_pipeline(
     )
     
     # Wait for both to complete
-    print("-> Running extraction and synthesis in parallel...")
+    logging.info("-> Running extraction and synthesis in parallel...")
     intermediate_reports, extraction_payload = await asyncio.gather(
         intermediate_reports_task,
         extraction_task
     )
     
-    print(f"-> Parallel processing complete.")
+    logging.info(f"-> Parallel processing complete.")
     
     # Final synthesis
     await update_status(stage="compiling", progress=85, message="Generating final report...")
@@ -1308,7 +1646,7 @@ async def execute_research_pipeline(
         final_report_content = "Error: Final report could not be generated or found."
 
     elapsed = time.perf_counter() - start_time
-    print(f"--- Optimized Pipeline complete in {elapsed:.2f} seconds ---")
+    logging.info(f"--- Optimized Pipeline complete in {elapsed:.2f} seconds ---")
 
     return {
         "original_query": user_query,
@@ -1332,17 +1670,17 @@ Datasources/URLs (https://www.paint.org/ , https://www.coatingsworld.com/ , http
     async def main():
         # Dummy callback for standalone testing
         async def dummy_callback(stage: str, progress: int, message: str):
-            print(f"[{progress}%] {stage}: {message}")
+            logging.info(f"[{progress}%] {stage}: {message}")
         
         try:
             results = await execute_research_pipeline(USER_QUERY, dummy_callback)
-            print("\n\n--- PIPELINE RESULT ---")
-            print("\n## FINAL REPORT (Snippet) ##")
-            print(results['final_report_markdown'][:500] + "...")
-            print("\n## EXTRACTED DATA (Summary) ##")
-            print(json.dumps(results['metadata']['extraction_summary'], indent=2))
+            logging.info("\n\n--- PIPELINE RESULT ---")
+            logging.info("\n## FINAL REPORT (Snippet) ##")
+            logging.info(results['final_report_markdown'][:500] + "...")
+            logging.info("\n## EXTRACTED DATA (Summary) ##")
+            logging.info(json.dumps(results['metadata']['extraction_summary'], indent=2))
         except Exception as e:
-            print(f"An error occurred: {e}")
+            logging.error(f"An error occurred: {e}")
 
     asyncio.run(main())
 
@@ -1353,6 +1691,7 @@ File: src/phase1_planner.py
 # src/phase1_planner.py
 import base64
 import os
+import logging
 from datetime import datetime
 from google import genai
 from google.genai import types
@@ -1373,7 +1712,7 @@ def generate_search_queries(user_input: str) -> dict[str, list[str]]:
         where each value is a list of search query strings.
         Returns empty lists for each category if generation fails.
     """
-    print("Phase 1: Generating search queries with Gemini...")
+    logging.info("Phase 1: Generating search queries with Gemini...")
 
     try:
         # 1. Instantiate the client using the API key from our config
@@ -1483,23 +1822,23 @@ JSON OUTPUT STRUCTURE:
                 cleaned_buckets[bucket_name] = cleaned_queries
                 total_queries += len(cleaned_queries)
             else:
-                print(f"Warning: LLM returned '{bucket_name}' but it was not a list. Using empty list.")
+                logging.warning(f"LLM returned '{bucket_name}' but it was not a list. Using empty list.")
                 cleaned_buckets[bucket_name] = []
 
-        print(f"Successfully generated and cleaned {total_queries} search queries across {len(cleaned_buckets)} buckets.")
+        logging.info(f"Successfully generated and cleaned {total_queries} search queries across {len(cleaned_buckets)} buckets.")
         return cleaned_buckets
 
     except json.JSONDecodeError as e:
-        print(f"Error: Failed to parse JSON from the LLM response. Error: {e}")
+        logging.error(f"Failed to parse JSON from the LLM response. Error: {e}")
         raw = None
         try:
             raw = response.candidates[0].content.parts[0].text
         except Exception:
             pass
-        print(f"----- LLM Raw Response -----\n{raw if raw is not None else 'No text in response'}\n--------------------------")
+        logging.error(f"----- LLM Raw Response -----\n{raw if raw is not None else 'No text in response'}\n--------------------------")
         return {k: [] for k in ["News","Patents","Conference","Legalnews","General"]}
     except Exception as e:
-        print(f"An unexpected error occurred during query generation: {e}")
+        logging.error(f"An unexpected error occurred during query generation: {e}")
         return {k: [] for k in ["News","Patents","Conference","Legalnews","General"]}
 
 
@@ -1508,7 +1847,7 @@ File: src/phase2_searcher.py
 ================================================
 # src/phase2_searcher.py  (fully rewritten)
 
-import asyncio, re, time
+import asyncio, re, time, logging
 import httpx
 from datetime import date
 from src import config, constants
@@ -1539,9 +1878,9 @@ async def _single_cse(client: httpx.AsyncClient, query: str, bucket: str,
             r.raise_for_status()
             items = r.json().get("items", [])
             return [(it["link"], bucket) for it in items]
-        print(f"⚠️  CSE error {e.response.status_code} for query #{idx}: {query[:60]}")
+        logging.warning(f"CSE error {e.response.status_code} for query #{idx}: {query[:60]}")
     except Exception as e:
-        print(f"⚠️  {e} on query #{idx}")
+        logging.warning(f"{e} on query #{idx}")
     return []
 
 async def execute_cse_searches(queries_by_type: dict[str, list[str]],
@@ -1578,7 +1917,7 @@ async def execute_cse_searches(queries_by_type: dict[str, list[str]],
                 tagset.add((link, bucket))
 
     elapsed = time.perf_counter() - t0
-    print(f"✓ Phase 2 – {len(tagset)} unique URLs in {elapsed:0.1f}s "
+    logging.info(f"Phase 2 – {len(tagset)} unique URLs in {elapsed:0.1f}s "
           f"({len(flat)} queries, {max_concurrency} concurrency)")
     return list(tagset)
 
@@ -1591,6 +1930,7 @@ File: src/phase3_intermediate_synthesizer.py
 import os
 import re
 import datetime
+import logging
 from datetime import date
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Tuple
@@ -1610,10 +1950,10 @@ def synthesize_intermediate_report(
     Generates a focused Markdown sub-report for a given URL batch using Gemini's UrlContext.
     """
     if not urls_batch:
-        print(f"    - Batch {batch_index}: No URLs provided — skipping.")
+        logging.info(f"    - Batch {batch_index}: No URLs provided — skipping.")
         return ""
 
-    print(f"    - Batch {batch_index}: Synthesizing {len(urls_batch)} URLs...")
+    logging.info(f"    - Batch {batch_index}: Synthesizing {len(urls_batch)} URLs...")
 
     client = genai.Client(api_key=config.GEMINI_API_KEY)
 
@@ -1702,12 +2042,12 @@ def synthesize_intermediate_report(
         with open(path, "w", encoding="utf-8") as f:
             f.write(f"## Batch {batch_index} Intermediate Report\n\n")
             f.write(intermediate_md)
-        print(f"    - Batch {batch_index}: sub-report saved → {path}")
+        logging.info(f"    - Batch {batch_index}: sub-report saved → {path}")
         return intermediate_md
 
     except Exception as e:
         err = f"## Batch {batch_index} – Error during synthesis:\n{e}"
-        print(f"    - {err}")
+        logging.error(f"    - {err}")
         return err
 
 
@@ -1730,14 +2070,14 @@ def synthesize_intermediate_reports_parallel(
         List of tuples containing (batch_index, report_content)
     """
     if not url_batches:
-        print("No URL batches provided for parallel processing.")
+        logging.info("No URL batches provided for parallel processing.")
         return []
 
     # Calculate optimal number of workers
     if max_workers is None:
         max_workers = min(len(url_batches), 8)  # Cap at 8 to avoid overwhelming the API
     
-    print(f"Starting parallel synthesis of {len(url_batches)} batches with {max_workers} workers...")
+    logging.info(f"Starting parallel synthesis of {len(url_batches)} batches with {max_workers} workers...")
     
     results = []
     
@@ -1761,16 +2101,16 @@ def synthesize_intermediate_reports_parallel(
             try:
                 report_content = future.result()
                 results.append((batch_index, report_content))
-                print(f"✓ Completed batch {batch_index}")
+                logging.info(f"✓ Completed batch {batch_index}")
             except Exception as e:
                 error_msg = f"## Batch {batch_index} – Error during parallel synthesis:\n{e}"
                 results.append((batch_index, error_msg))
-                print(f"✗ Failed batch {batch_index}: {e}")
+                logging.error(f"✗ Failed batch {batch_index}: {e}")
     
     # Sort results by batch index to maintain order
     results.sort(key=lambda x: x[0])
     
-    print(f"✓ Parallel synthesis completed: {len(results)} batches processed")
+    logging.info(f"✓ Parallel synthesis completed: {len(results)} batches processed")
     return results
 
 
@@ -1829,12 +2169,14 @@ import datetime
 from datetime import date
 import re
 import time
+import logging
 from google import genai
 from google.genai import types
 from src import config
 from src.constants import MAX_GEMINI_PARALLEL, EXTRACT_BATCH_SIZE
 from src import constants
 from dateutil import parser as dtparse
+from operator import itemgetter
 
 def _is_recent(date_str: str | None) -> bool:
     """
@@ -1864,7 +2206,7 @@ def extract_data_from_single_url_sync(
     Uses Gemini to extract structured items (news, Patents, conferences, Legalnews) from a URL.
     Returns parsed list of item dicts.
     """
-    print(f"    - Extracting from: {url}")
+    logging.info(f"    - Extracting from: {url}")
     try:
         # Get current date for context
         current_date = date.today()
@@ -1932,23 +2274,23 @@ def extract_data_from_single_url_sync(
         )
         
         if not response.candidates or not response.candidates[0].content or not response.candidates[0].content.parts:
-            print(f"      → No content part in Gemini response for: {url}")
+            logging.warning(f"      → No content part in Gemini response for: {url}")
             return []
             
         text_output = response.candidates[0].content.parts[0].text.strip()
         # Extract the JSON array substring
         match = re.search(r"\[.*\]", text_output, re.S)
         if not match:
-            print(f"      → No JSON array in response for: {url}\n        Response: {text_output[:100]}...")
+            logging.warning(f"      → No JSON array in response for: {url}\n        Response: {text_output[:100]}...")
             return []
         items = json.loads(match.group(0))
         return items if isinstance(items, list) else []
 
     except json.JSONDecodeError as e:
-        print(f"      → JSONDecodeError for URL {url}: {e}")
+        logging.error(f"      → JSONDecodeError for URL {url}: {e}")
         return []
     except Exception as e:
-        print(f"      → Error processing {url}: {e}")
+        logging.error(f"      → Error processing {url}: {e}")
         return []
 
 async def run_structured_extraction(
@@ -1969,7 +2311,7 @@ async def run_structured_extraction(
     Returns:
       Categorized dict of extracted items.
     """
-    print(f"\nPhase 4: Extracting structured data from {len(urls)} URLs in batches...")
+    logging.info(f"\nPhase 4: Extracting structured data from {len(urls)} URLs in batches...")
     os.makedirs(output_dir, exist_ok=True)
     
     # ————— fast concurrent extraction —————
@@ -1988,7 +2330,7 @@ async def run_structured_extraction(
     t0 = time.perf_counter()
     out_lists = await asyncio.gather(*(one(u) for u in urls))
     elapsed = time.perf_counter() - t0
-    print(f"✓ Phase 4 – extracted {len(urls)} URLs in {elapsed:0.1f}s "
+    logging.info(f"✓ Phase 4 – extracted {len(urls)} URLs in {elapsed:0.1f}s "
           f"({constants.MAX_GEMINI_PARALLEL} Gemini workers)")
     
     categorized = {k: [] for k in EXPECTED_CATEGORIES}
@@ -1999,6 +2341,17 @@ async def run_structured_extraction(
             if not _is_recent(item.get("date")):
                 # silently drop anything older than RECENT_YEARS
                 continue
+            
+            # --- Add a parsed date for sorting ---
+            # We'll parse the date string into a real date object.
+            # We add this temporarily and will remove it before saving.
+            try:
+                # The 'fuzzy=True' helps parse incomplete dates like "2024-05"
+                item['_parsed_date'] = dtparse.parse(item.get("date", ""), fuzzy=True)
+            except (dtparse.ParserError, TypeError):
+                # If date is invalid, default to a very old date so it goes to the bottom.
+                item['_parsed_date'] = datetime.datetime(1970, 1, 1)
+            
             # When normalising each item - use url2tag for type guessing
             item_type = (item.get("type") or url2tag.get(item.get("source_url"), "Other")) or "Other"
             item["type"] = item_type
@@ -2006,6 +2359,19 @@ async def run_structured_extraction(
             t = item.get("type", "Other")
             categorized.setdefault(t if t in EXPECTED_CATEGORIES else "Other", categorized["Other"]).append(item)
             total_items += 1
+
+    # --- Sorting Logic ---
+    # Now, iterate through each category and sort its list of items.
+    print("    - Sorting extracted items by date...")
+    for category in categorized:
+        # Sort the list in-place.
+        # `itemgetter` is slightly faster than a lambda function.
+        # `reverse=True` puts the newest dates first.
+        categorized[category].sort(key=itemgetter('_parsed_date'), reverse=True)
+        
+        # Clean up the temporary '_parsed_date' key from each item.
+        for item in categorized[category]:
+            del item['_parsed_date']
 
     # Prepare metadata and write output
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -2055,6 +2421,7 @@ File: src/phase5_final_synthesizer.py
 import os
 import re
 import datetime
+import logging
 from datetime import date
 from google import genai
 from google.genai import types
@@ -2072,14 +2439,14 @@ def synthesize_final_report(
     Consolidates intermediate sub-reports into a comprehensive Markdown report.
     """
     os.makedirs(output_dir, exist_ok=True)
-    print(f"\nPhase 5: Generating final report from {len(intermediate_reports_text)} intermediate documents...")
+    logging.info(f"\nPhase 5: Generating final report from {len(intermediate_reports_text)} intermediate documents...")
 
     if not intermediate_reports_text:
         return _create_fallback_report(original_user_query, output_dir, "No intermediate reports available")
 
     formatted_content = _format_intermediate_reports(intermediate_reports_text)
     if len(formatted_content) > 100_000:
-        print("    - Warning: content truncated for context limit")
+        logging.warning("    - Warning: content truncated for context limit")
         formatted_content = formatted_content[:100_000] + "\n\n[Content truncated due to length...]"
 
     client = genai.Client(api_key=config.GEMINI_API_KEY)
@@ -2124,9 +2491,10 @@ def synthesize_final_report(
         "    - Frame them as clear directives. Example: 'Recommend allocating an additional $5M in R&D to develop a proprietary scuff-resistant resin to counter Competitor X's new product launch' instead of 'We should invest in R&D.'\n\n"
         
         "**EXECUTIVE COMMUNICATION PROTOCOL:**\n"
-        "•   **Be Decisive:** Use strong, declarative sentences. Avoid hedging language.\n"
-        "•   **Quantify Everything:** Use all available figures, percentages, and timelines to support your analysis.\n"
-        "•   **Clarity and Brevity:** Use headings and bullet points. Assume your audience has only five minutes.\n"
+        "•   **Be Decisive & Direct:** Use strong, declarative sentences. Lead with the conclusion, then provide brief evidence. Avoid hedging language like 'it seems' or 'it could be'.\n"
+        "•   **Prioritize Brevity:** Use bullet points for everything possible. Each section should be scannable in seconds. The entire report should be digestible in under 5 minutes.\n"
+        "•   **Focus on Insight, Not Information:** Do not just list facts. State the insight derived from the fact. BAD: 'Company X launched a new product.' GOOD: 'Company X's new product launch directly threatens our market share in the premium segment, representing a potential 10% revenue risk.'\n"
+        "•   **Quantify Everything:** Use all available figures, percentages, and timelines to support your analysis. Estimate when necessary, and state that it is an estimate.\n"
         "•   **Reference Integrity:** Do NOT include inline citations. A reference list of the source URLs will be appended automatically.\n\n"
         
         "**DELIVERABLE:** A polished, professional Markdown report that can be directly used for the company's strategic planning session."
@@ -2158,7 +2526,7 @@ def synthesize_final_report(
     )
 
     try:
-        print("    - Calling Gemini for final synthesis...")
+        logging.info("    - Calling Gemini for final synthesis...")
         stream = client.models.generate_content_stream(
             model="gemini-2.5-flash-preview-05-20",
             contents=contents,
@@ -2177,11 +2545,11 @@ def synthesize_final_report(
         final_with_refs = _add_references_section(final_text, all_original_urls)
         filepath = _save_final_report(final_with_refs, original_user_query, output_dir)
 
-        print(f"✅ Final report saved to {filepath} ({len(final_with_refs):,} chars, {len(all_original_urls)} references)")
+        logging.info(f"✅ Final report saved to {filepath} ({len(final_with_refs):,} chars, {len(all_original_urls)} references)")
         return filepath
 
     except Exception as e:
-        print(f"❌ Gemini error: {e}")
+        logging.error(f"❌ Gemini error: {e}")
         return _create_fallback_report(original_user_query, output_dir, str(e), intermediate_reports_text)
 
 def _format_intermediate_reports(reports: list[str]) -> str:
@@ -2451,30 +2819,18 @@ def _update_system_prompt(collection_name: str):
         "X-Api-Org": config.RAG_API_ORG_ID
     }
 
-    # Create a comprehensive system prompt for market research intelligence
-    system_prompt = """You are an expert Market Intelligence Analyst, acting as an interactive query engine for a specific research job.
+    # Create a refined system prompt for market research intelligence
+    system_prompt = """You are an expert Market Intelligence Analyst, a precision Q&A engine. Your knowledge is strictly and absolutely limited to the documents uploaded for this research job. Your purpose is to provide quick, reliable answers.
 
 **Your Core Directives:**
 
-1.  **Scope Limitation:** Your knowledge is strictly and absolutely limited to the documents uploaded for this research job. These include a final report, intermediate analyses, and structured data files (news, patents, etc.).
+1.  **Scope Limitation:** Answer ONLY from the provided documents. If the answer is not in the documents, you MUST state: "I cannot answer that question based on the provided documents." Do not use any external knowledge.
 
-2.  **Answer First, Then Cite:** Respond directly to the user's question first. Then, you MUST provide precise citations that support your answer.
-    - **Citation Format:** Refer to the source document by its logical name (e.g., `[final_report]`, `[intermediate_report_3]`, `[combined_news_data]`).
+2.  **Answer First, Then Cite:** Respond directly and concisely to the user's question first. Then, provide precise citations in the format `[document_name]` that support your answer.
 
-3.  **Synthesize and Analyze:** Do not just quote passages. Synthesize information from multiple sources if necessary to form a complete answer. When asked for an opinion or analysis (e.g., "What is the biggest threat?"), base your conclusion on the evidence within the documents.
+3.  **Synthesize, Don't Recite:** Do not just quote passages. Synthesize information from multiple sources to form a complete, clear answer. Use bullet points for clarity.
 
-4.  **Honesty and Transparency:** If you cannot answer a question using the provided documents, you MUST state that clearly. Do not hallucinate, speculate, or attempt to answer using external knowledge. A perfect answer is: "I cannot answer that question based on the provided documents."
-
-5.  **Be Professional and Concise:** Use clear, structured language (headings, bullet points) to present your findings. Your purpose is to provide quick, reliable access to the key intelligence contained in the research artifacts.
-
-**Example Interaction:**
-
-User: "Which companies are leading in scuff-resistant coating technologies?"
-
-You: "Based on the provided research, the key players in scuff-resistant coating technologies include Company A, who launched a new product line, and Company B, who was granted a relevant patent.
-
-- Company A's "DuraShield" product showed a 50% improvement in abrasion tests according to the analysis. `[final_report]`
-- Company B's patent focuses on a novel polymer cross-linking technology. `[combined_patents_data]`"
+4.  **No Small Talk:** Do not greet the user or use conversational filler. But if a the user says hello or who are you, then you can say hello or I am a market intelligence analyst. Do not be rude or sarcastic. Be professional and friendly.
 """
 
     data = {
@@ -2980,5 +3336,125 @@ Search tags/topics - Product, coating, architectural or similar.""")
 
 if __name__ == "__main__":
     main() 
+
+
+================================================
+File: src/tasks.py
+================================================
+# File: src/tasks.py (NEW FILE)
+import asyncio
+import logging
+from celery_worker import celery_app # Import our Celery app instance
+
+# --- All the imports from the original run_and_store_results function ---
+from database.session import SessionLocal
+from database.models import Job as DBJob
+from src.main import execute_research_pipeline
+from src.rag_uploader import upload_artifacts_to_rag
+import threading
+
+# Define the task using the @celery_app.task decorator
+@celery_app.task(name="run_research_pipeline_task")
+def run_research_pipeline_task(job_id: str, query: str, should_upload_to_rag: bool):
+    """
+    This is the Celery task that executes the full research pipeline.
+    It's the same logic as the old background task, but now it runs in a Celery worker.
+    """
+    logging.info(f"Celery task started for job_id: {job_id}")
+    db = SessionLocal()
+    try:
+        job = db.query(DBJob).filter(DBJob.id == job_id).first()
+        if not job:
+            logging.error(f"Job {job_id} not found in DB for Celery task. Aborting.")
+            return
+
+        logging.info(f"Job {job_id}: Starting research pipeline...")
+        job.status = 'running'
+        job.job_stage = 'initializing'
+        job.job_progress = 5
+        db.commit()
+
+        # --- This status callback is the same as before ---
+        async def update_status_in_db(stage: str = None, progress: int = None, message: str = None):
+            # This needs its own DB session because it's in an async context
+            db_session = SessionLocal()
+            try:
+                job_to_update = db_session.query(DBJob).filter(DBJob.id == job_id).first()
+                if job_to_update:
+                    if stage: job_to_update.job_stage = stage
+                    if progress: job_to_update.job_progress = progress
+                    if message:
+                        if job_to_update.logs is None: job_to_update.logs = []
+                        job_to_update.logs = job_to_update.logs + [message]
+                    db_session.commit()
+            finally:
+                db_session.close()
+            await asyncio.sleep(0)
+
+        # Run the main research pipeline
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            result_data = loop.run_until_complete(
+                execute_research_pipeline(query, update_status_in_db)
+            )
+        finally:
+            loop.close()
+        
+        logging.info(f"Job {job_id}: Pipeline completed. Marking as COMPLETED immediately.")
+        job.result = result_data
+        job.status = 'completed'
+        job.job_stage = 'finished'
+        job.job_progress = 100
+        
+        if should_upload_to_rag:
+            job.upload_to_rag = True
+            job.rag_status = 'pending_upload'
+        else:
+            job.upload_to_rag = False
+            job.rag_status = 'not_requested'
+        
+        db.commit()
+        logging.info(f"Job {job_id}: Status set to COMPLETED in DB.")
+        
+        # Start RAG upload in a background thread (same logic)
+        if should_upload_to_rag:
+            logging.info(f"Job {job_id}: Starting RAG upload in background thread...")
+            # This part remains identical, using a thread within the Celery worker
+            def run_rag_upload():
+                try:
+                    collection_name = upload_artifacts_to_rag(job_id, result_data)
+                    with SessionLocal() as rag_db:
+                        rag_job = rag_db.query(DBJob).filter(DBJob.id == job_id).first()
+                        if rag_job:
+                            if collection_name:
+                                rag_job.rag_collection_name = collection_name
+                                rag_job.rag_status = 'uploaded'
+                            else:
+                                rag_job.rag_status = 'failed'
+                                rag_job.rag_error = 'RAG upload returned no collection name'
+                            rag_db.commit()
+                except Exception as rag_error:
+                    logging.error(f"Job {job_id}: RAG upload failed.", exc_info=True)
+                    with SessionLocal() as rag_db:
+                        rag_job = rag_db.query(DBJob).filter(DBJob.id == job_id).first()
+                        if rag_job:
+                            rag_job.rag_status = 'failed'
+                            rag_job.rag_error = str(rag_error)
+                            rag_db.commit()
+            
+            rag_thread = threading.Thread(target=run_rag_upload, daemon=True)
+            rag_thread.start()
+    
+    except Exception as e:
+        logging.error(f"Job {job_id}: Celery task failed with an unhandled exception.", exc_info=True)
+        job.status = 'failed'
+        job.job_stage = 'error'
+        job.job_progress = 0
+        job.result = {"error": str(e)}
+        db.commit()
+    finally:
+        db.close() 
 
 

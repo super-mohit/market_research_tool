@@ -3,6 +3,7 @@
 import os
 import re
 import datetime
+import logging
 from datetime import date
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Tuple
@@ -22,10 +23,10 @@ def synthesize_intermediate_report(
     Generates a focused Markdown sub-report for a given URL batch using Gemini's UrlContext.
     """
     if not urls_batch:
-        print(f"    - Batch {batch_index}: No URLs provided — skipping.")
+        logging.info(f"    - Batch {batch_index}: No URLs provided — skipping.")
         return ""
 
-    print(f"    - Batch {batch_index}: Synthesizing {len(urls_batch)} URLs...")
+    logging.info(f"    - Batch {batch_index}: Synthesizing {len(urls_batch)} URLs...")
 
     client = genai.Client(api_key=config.GEMINI_API_KEY)
 
@@ -114,12 +115,12 @@ def synthesize_intermediate_report(
         with open(path, "w", encoding="utf-8") as f:
             f.write(f"## Batch {batch_index} Intermediate Report\n\n")
             f.write(intermediate_md)
-        print(f"    - Batch {batch_index}: sub-report saved → {path}")
+        logging.info(f"    - Batch {batch_index}: sub-report saved → {path}")
         return intermediate_md
 
     except Exception as e:
         err = f"## Batch {batch_index} – Error during synthesis:\n{e}"
-        print(f"    - {err}")
+        logging.error(f"    - {err}")
         return err
 
 
@@ -142,14 +143,14 @@ def synthesize_intermediate_reports_parallel(
         List of tuples containing (batch_index, report_content)
     """
     if not url_batches:
-        print("No URL batches provided for parallel processing.")
+        logging.info("No URL batches provided for parallel processing.")
         return []
 
     # Calculate optimal number of workers
     if max_workers is None:
         max_workers = min(len(url_batches), 8)  # Cap at 8 to avoid overwhelming the API
     
-    print(f"Starting parallel synthesis of {len(url_batches)} batches with {max_workers} workers...")
+    logging.info(f"Starting parallel synthesis of {len(url_batches)} batches with {max_workers} workers...")
     
     results = []
     
@@ -173,16 +174,16 @@ def synthesize_intermediate_reports_parallel(
             try:
                 report_content = future.result()
                 results.append((batch_index, report_content))
-                print(f"✓ Completed batch {batch_index}")
+                logging.info(f"✓ Completed batch {batch_index}")
             except Exception as e:
                 error_msg = f"## Batch {batch_index} – Error during parallel synthesis:\n{e}"
                 results.append((batch_index, error_msg))
-                print(f"✗ Failed batch {batch_index}: {e}")
+                logging.error(f"✗ Failed batch {batch_index}: {e}")
     
     # Sort results by batch index to maintain order
     results.sort(key=lambda x: x[0])
     
-    print(f"✓ Parallel synthesis completed: {len(results)} batches processed")
+    logging.info(f"✓ Parallel synthesis completed: {len(results)} batches processed")
     return results
 
 

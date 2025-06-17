@@ -15,6 +15,11 @@ reportlab
 gunicorn==22.0.0
 httplib2==0.22.0
 httpx[http2]==0.28.1
+celery==5.4.0
+redis==5.0.4
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+psycopg2-binary==2.9.9
 idna==3.10
 sqlalchemy==2.0.31
 proto-plus==1.26.1
