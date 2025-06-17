@@ -1,5 +1,6 @@
 # api/server.py
 import uuid
+import os  # Add this import
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,11 +31,19 @@ app = FastAPI(
 )
 
 # This is the crucial part. It allows your frontend to talk to the backend.
+# We will get the production URL from an environment variable.
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173") 
+
 origins = [
     "http://localhost:5173", # Default Vite dev server port
     "http://localhost:3000", # Common React dev server port
     "http://localhost:5174", # Another possible Vite port
+    FRONTEND_URL, # Add your production URL here
 ]
+
+# Remove any duplicates if FRONTEND_URL is a localhost one
+origins = list(set(origins)) 
+print(f"Allowing origins: {origins}")
 
 app.add_middleware(
     CORSMiddleware,
