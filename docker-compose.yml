@@ -1,31 +1,69 @@
-# File: docker-compose.yml
+# File: docker-compose.yml (updated version)
 version: '3.8'
 
 services:
+  # 1. The PostgreSQL Database Service
   db:
-    image: postgres:15-alpine  # Use a specific, lightweight version
+    image: postgres:15-alpine
     container_name: market_intel_db
-    restart: always
-    environment:
-      - POSTGRES_USER=market_user
-      - POSTGRES_PASSWORD=supervity
-      - POSTGRES_DB=market_intel_db
-    ports:
-      - "5432:5432" # Expose the DB port to your local machine
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=market_user
+      - POSTGRES_PASSWORD=supervity # Make sure this matches your .env
+      - POSTGRES_DB=market_intel_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U market_user -d market_intel_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  # Add Redis to match your Render production setup
+  # 2. The Redis Message Broker Service
   redis:
     image: redis:7-alpine
     container_name: market_intel_redis
-    restart: always
     ports:
       - "6379:6379"
+
+  # 3. The FastAPI Web Service
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: market_intel_api
+    command: uvicorn api.server:app --host 0.0.0.0 --port 8000 --reload
     volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes  # Enable persistence
+      - .:/app # Mount the local code into the container for hot-reloading
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env # Load environment variables from the .env file
+    depends_on:
+      db:
+        condition: service_healthy # Wait for the DB to be ready
+      redis:
+        condition: service_started # Wait for Redis to start
+
+  # 4. The Celery Background Worker Service
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: market_intel_worker
+    command: celery -A celery_worker.celery_app worker --loglevel=info -P gevent
+    volumes:
+      - .:/app # Mount the local code for hot-reloading
+    env_file:
+      - .env # Use the same .env file
+    depends_on:
+      api:
+        condition: service_started # It depends on the same code and environment
+      redis:
+        condition: service_started
+      db:
+        condition: service_healthy
 
 volumes:
-  postgres_data: # This ensures your data persists even if the container is removed
-  redis_data: # This ensures Redis data persists across container restarts
+  postgres_data:
