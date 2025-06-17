@@ -1,9 +1,10 @@
 # api/server.py
 import uuid
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Request, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
+import json
 import requests
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -72,14 +73,25 @@ def run_and_store_results(job_id: str, query: str, should_upload_to_rag: bool):
         job.job_progress = 5
         db.commit()
 
-        # --- MODIFIED: Simplify the callback again ---
+        # --- MODIFIED: The callback now appends logs to the DB ---
         async def update_status_in_db(stage: str = None, progress: int = None, message: str = None):
-            job_to_update = db.query(DBJob).filter(DBJob.id == job_id).first()
-            if job_to_update:
-                if stage: job_to_update.job_stage = stage
-                if progress: job_to_update.job_progress = progress
-                db.commit()
-            await asyncio.sleep(0)
+            # Using a new session to avoid threading issues with the main commit loop
+            db_session = SessionLocal()
+            try:
+                job_to_update = db_session.query(DBJob).filter(DBJob.id == job_id).first()
+                if job_to_update:
+                    if stage: 
+                        job_to_update.job_stage = stage
+                    if progress: 
+                        job_to_update.job_progress = progress
+                    if message:
+                        # This is the key change: append the log message.
+                        # The `job.logs` is an mutable list managed by SQLAlchemy's JSON type.
+                        job_to_update.logs = job_to_update.logs + [message]
+                    db_session.commit()
+            finally:
+                db_session.close()
+            await asyncio.sleep(0) # Yield control
 
         # Run the pipeline in a new event loop
         loop = asyncio.new_event_loop()
@@ -333,3 +345,78 @@ async def get_job_rag_info(job_id: str, db: Session = Depends(get_db)):
         rag_error=job.rag_error,
         can_query=(job.rag_status == 'uploaded' and job.rag_collection_name is not None)
     )
+
+
+# --- NEW: SSE Stream Generator ---
+async def job_update_generator(job_id: str):
+    """
+    Yields real-time updates for a given job as Server-Sent Events.
+    """
+    # Each generator needs its own DB session
+    db = SessionLocal()
+    last_log_count = 0
+    result_sent = False
+
+    try:
+        while True:
+            # Re-query the job in each iteration to get the latest state
+            job = db.query(DBJob).filter(DBJob.id == job_id).first()
+            if not job:
+                break # Job not found, stop streaming
+
+            # Stream new log messages
+            current_log_count = len(job.logs)
+            if current_log_count > last_log_count:
+                new_logs = job.logs[last_log_count:]
+                for log_msg in new_logs:
+                    yield f"event: log\ndata: {json.dumps({'message': log_msg})}\n\n"
+                last_log_count = current_log_count
+            
+            # Stream status/stage updates
+            yield f"event: status\ndata: {json.dumps({'status': job.status, 'stage': job.job_stage, 'progress': job.job_progress})}\n\n"
+
+            # Stream RAG status if applicable
+            if job.upload_to_rag:
+                 yield f"event: rag_status\ndata: {json.dumps({'rag_status': job.rag_status, 'can_query': job.rag_status == 'uploaded'})}\n\n"
+
+            # CRITICAL: Send the full result payload ONCE when it's ready
+            if job.status == 'completed' and job.result and not result_sent:
+                # Use the existing _dict_to_extracted_model logic to format data
+                enhanced_metadata = job.result.get("metadata", {}).copy()
+                if job.upload_to_rag:
+                    enhanced_metadata['rag_info'] = {
+                        'upload_requested': True,
+                        'rag_status': job.rag_status,
+                        'collection_name': job.rag_collection_name,
+                        'rag_error': job.rag_error,
+                        'can_query': job.rag_status == 'uploaded'
+                    }
+                
+                final_payload = {
+                    "job_id": job.id,
+                    "status": 'completed',
+                    "original_query": job.result.get("original_query"),
+                    "final_report_markdown": job.result.get("final_report_markdown"),
+                    "extracted_data": _dict_to_extracted_model(job.result.get("extracted_data", {})).dict(),
+                    "metadata": enhanced_metadata
+                }
+                yield f"event: result\ndata: {json.dumps(final_payload)}\n\n"
+                result_sent = True
+
+            # If the job is fully done (completed/failed and RAG is settled), close the stream.
+            is_rag_settled = not job.upload_to_rag or job.rag_status in ['uploaded', 'failed']
+            if job.status in ['completed', 'failed'] and is_rag_settled:
+                yield f"event: close\ndata: Job finished\n\n"
+                break
+
+            await asyncio.sleep(2) # Check for updates every 2 seconds
+
+    except asyncio.CancelledError:
+        print(f"Client disconnected from job stream {job_id}")
+    finally:
+        db.close()
+
+# --- NEW: SSE Endpoint ---
+@app.get("/api/research/stream/{job_id}")
+async def stream_research_status(job_id: str):
+    return StreamingResponse(job_update_generator(job_id), media_type="text/event-stream")
