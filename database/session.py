@@ -25,8 +25,9 @@ Base = declarative_base()
 
 # Function to create all tables in the database
 def init_db():
-    print("Initializing database and creating tables...")
+    print("Initializing database and creating tables (if they don't exist)...")
     # This will create tables for all models that inherit from Base
     from database.models import Job  # Import model here
-    Base.metadata.create_all(bind=engine)
+    # THIS IS THE FIX: checkfirst=True tells SQLAlchemy to check for the table's existence before trying to create it.
+    Base.metadata.create_all(bind=engine, checkfirst=True)
     print("Database initialized.") 
