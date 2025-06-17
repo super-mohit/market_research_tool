@@ -4,8 +4,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-# The database file will be created in the project root
-DATABASE_URL = "sqlite:///./jobs.db"
+# For production, read the database path from an environment variable.
+# For local development, it falls back to the original "sqlite:///./jobs.db".
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./jobs.db")
+
+# Add a print statement to be 100% sure which database is being used.
+print(f"💽 Connecting to database at: {DATABASE_URL}")
 
 # create_engine is the entry point to the database
 # connect_args is needed only for SQLite to allow multithreading
