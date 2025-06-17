@@ -59,7 +59,9 @@ def get_db():
 
 # --- Background Task (Now DB-aware) ---
 def run_and_store_results(job_id: str, query: str, should_upload_to_rag: bool):
-    # Each background task gets its own database session
+    """
+    🔥 FIXED: Job processing with immediate completion and parallel RAG upload
+    """
     db = SessionLocal()
     try:
         job = db.query(DBJob).filter(DBJob.id == job_id).first()
@@ -73,9 +75,7 @@ def run_and_store_results(job_id: str, query: str, should_upload_to_rag: bool):
         job.job_progress = 5
         db.commit()
 
-        # --- MODIFIED: The callback now appends logs to the DB ---
         async def update_status_in_db(stage: str = None, progress: int = None, message: str = None):
-            # Using a new session to avoid threading issues with the main commit loop
             db_session = SessionLocal()
             try:
                 job_to_update = db_session.query(DBJob).filter(DBJob.id == job_id).first()
@@ -85,65 +85,87 @@ def run_and_store_results(job_id: str, query: str, should_upload_to_rag: bool):
                     if progress: 
                         job_to_update.job_progress = progress
                     if message:
-                        # This is the key change: append the log message.
-                        # The `job.logs` is an mutable list managed by SQLAlchemy's JSON type.
+                        if job_to_update.logs is None:
+                            job_to_update.logs = []
                         job_to_update.logs = job_to_update.logs + [message]
                     db_session.commit()
+            except Exception as e:
+                print(f"Error updating job status: {e}")
             finally:
                 db_session.close()
-            await asyncio.sleep(0) # Yield control
+            await asyncio.sleep(0)
 
-        # Run the pipeline in a new event loop
+        # Run the research pipeline
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
-        # --- MODIFIED: Pass the callback to the pipeline ---
-        result_data = loop.run_until_complete(
-            execute_research_pipeline(query, update_status_in_db)
-        )
+        try:
+            result_data = loop.run_until_complete(
+                execute_research_pipeline(query, update_status_in_db)
+            )
+        finally:
+            loop.close()
         
+        # 🔥 CRITICAL: Mark job as completed IMMEDIATELY
+        print(f"Job {job_id}: Pipeline completed. Marking as COMPLETED immediately...")
         job.result = result_data
-        job.status = 'completed'
+        job.status = 'completed'  # This is the key change
         job.job_stage = 'finished'
         job.job_progress = 100
-        db.commit()
-        print(f"Job {job_id}: Pipeline completed successfully.")
         
+        # 🔥 CRITICAL: Set RAG status properly
         if should_upload_to_rag:
-            print(f"Job {job_id}: Starting RAG upload...")
+            job.upload_to_rag = True
             job.rag_status = 'pending_upload'
-            db.commit()
+        else:
+            job.upload_to_rag = False
+            job.rag_status = 'not_requested'
+        
+        db.commit()
+        print(f"Job {job_id}: ✅ Status set to COMPLETED. Frontend can now detect completion.")
+        
+        # 🔥 CRITICAL: Start RAG upload in background thread (doesn't block completion)
+        if should_upload_to_rag:
+            print(f"Job {job_id}: Starting RAG upload in background...")
             
-            try:
-                collection_name = upload_artifacts_to_rag(job_id, result_data)
-                
-                if collection_name:
-                    job.rag_collection_name = collection_name
-                    job.rag_status = 'uploaded'
-                    print(f"Job {job_id}: RAG upload successful. Collection: {collection_name}")
-                else:
-                    job.rag_status = 'failed'
-                    job.rag_error = 'RAG upload failed - see logs for details'
-                    print(f"Job {job_id}: RAG upload failed")
-                db.commit()
-            except Exception as rag_error:
-                print(f"Job {job_id}: RAG upload error: {rag_error}")
-                job.rag_status = 'failed'
-                job.rag_error = str(rag_error)
-                db.commit()
+            def run_rag_upload():
+                try:
+                    collection_name = upload_artifacts_to_rag(job_id, result_data)
+                    
+                    # Update RAG status
+                    with SessionLocal() as rag_db:
+                        rag_job = rag_db.query(DBJob).filter(DBJob.id == job_id).first()
+                        if rag_job:
+                            if collection_name:
+                                rag_job.rag_collection_name = collection_name
+                                rag_job.rag_status = 'uploaded'
+                                print(f"Job {job_id}: ✅ RAG upload successful. Collection: {collection_name}")
+                            else:
+                                rag_job.rag_status = 'failed'
+                                rag_job.rag_error = 'RAG upload failed'
+                                print(f"Job {job_id}: ❌ RAG upload failed")
+                            rag_db.commit()
+                except Exception as rag_error:
+                    print(f"Job {job_id}: RAG error: {rag_error}")
+                    with SessionLocal() as rag_db:
+                        rag_job = rag_db.query(DBJob).filter(DBJob.id == job_id).first()
+                        if rag_job:
+                            rag_job.rag_status = 'failed'
+                            rag_job.rag_error = str(rag_error)
+                            rag_db.commit()
+            
+            import threading
+            rag_thread = threading.Thread(target=run_rag_upload, daemon=True)
+            rag_thread.start()
     
     except Exception as e:
-        print(f"Job {job_id}: Pipeline failed. Error: {e}")
-        # Make sure to update the job in the DB with the failure status
-        job_in_db = db.query(DBJob).filter(DBJob.id == job_id).first()
-        if job_in_db:
-            job_in_db.status = 'failed'
-            job_in_db.job_stage = 'error'
-            job_in_db.job_progress = 0
-            job_in_db.result = {"error": str(e)}
-            db.commit()
+        print(f"Job {job_id}: ❌ Pipeline failed: {e}")
+        job.status = 'failed'
+        job.job_stage = 'error'
+        job.job_progress = 0
+        job.result = {"error": str(e)}
+        db.commit()
     finally:
-        loop.close()
         db.close()
 
 
@@ -234,45 +256,63 @@ async def get_research_status(job_id: str, db: Session = Depends(get_db)):
 
 
 @app.get("/api/research/result/{job_id}", response_model=ResearchResult)
-async def get_research_result(job_id: str, db: Session = Depends(get_db)):
-    job = db.query(DBJob).filter(DBJob.id == job_id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    if job.status in ['pending', 'running']:
-        return JSONResponse(
-            status_code=202, 
-            content={"job_id": job_id, "status": job.status, "detail": "Job is not yet complete. Please try again later."}
+async def get_research_result(job_id: str):
+    """
+    🔥 FIXED: Result endpoint with proper RAG info
+    """
+    db = SessionLocal()
+    try:
+        job = db.query(DBJob).filter(DBJob.id == job_id).first()
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        if job.status == 'pending' or job.status == 'running':
+            raise HTTPException(status_code=202, detail="Job still in progress")
+        
+        if job.status == 'failed':
+            error_msg = job.result.get("error", "Unknown error") if job.result else "Unknown error"
+            raise HTTPException(status_code=500, detail=f"Job failed: {error_msg}")
+        
+        if not job.result:
+            raise HTTPException(status_code=500, detail="Job completed but no result found")
+        
+        # 🔥 CRITICAL: Build metadata with RAG info
+        enhanced_metadata = job.result.get("metadata", {}).copy()
+        
+        if job.upload_to_rag:
+            enhanced_metadata['ragInfo'] = {
+                'upload_requested': True,
+                'rag_status': job.rag_status or 'pending_upload',
+                'collection_name': job.rag_collection_name,
+                'rag_error': job.rag_error,
+                'can_query': job.rag_status == 'uploaded'
+            }
+            print(f"Job {job_id}: RAG Info - Status: {job.rag_status}, Can Query: {job.rag_status == 'uploaded'}")
+        else:
+            enhanced_metadata['ragInfo'] = {
+                'upload_requested': False,
+                'rag_status': 'not_requested',
+                'can_query': False
+            }
+        
+        response = ResearchResult(
+            job_id=job.id,
+            status='completed',
+            original_query=job.result.get("original_query"),
+            final_report_markdown=job.result.get("final_report_markdown"),
+            extracted_data=_dict_to_extracted_model(job.result.get("extracted_data", {})),
+            metadata=enhanced_metadata
         )
-
-    if job.status == 'failed':
-        error = job.result.get('error', 'Unknown error') if job.result else 'Unknown error'
-        return JSONResponse(
-            status_code=500,
-            content={"job_id": job_id, "status": "failed", "error": error}
-        )
-    
-    if job.status != 'completed' or not job.result:
-         raise HTTPException(status_code=404, detail="Job result not available.")
-
-    data = job.result
-    enhanced_metadata = data.get("metadata", {}).copy()
-    if job.upload_to_rag:
-        enhanced_metadata['rag_info'] = {
-            'upload_requested': True,
-            'rag_status': job.rag_status,
-            'collection_name': job.rag_collection_name,
-            'rag_error': job.rag_error
-        }
-    
-    return ResearchResult(
-        job_id=job_id,
-        status='completed',
-        original_query=data["original_query"],
-        final_report_markdown=data["final_report_markdown"],
-        extracted_data=_dict_to_extracted_model(data["extracted_data"]),
-        metadata=enhanced_metadata
-    )
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error retrieving job result {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve job result: {str(e)}")
+    finally:
+        db.close()
 
 
 @app.post("/api/rag/query", response_model=RAGQueryResponse)
@@ -347,72 +387,52 @@ async def get_job_rag_info(job_id: str, db: Session = Depends(get_db)):
     )
 
 
-# --- NEW: SSE Stream Generator ---
 async def job_update_generator(job_id: str):
     """
     Yields real-time updates for a given job as Server-Sent Events.
     """
-    # Each generator needs its own DB session
     db = SessionLocal()
-    last_log_count = 0
-    result_sent = False
-
+    completion_sent = False
+    
     try:
         while True:
-            # Re-query the job in each iteration to get the latest state
             job = db.query(DBJob).filter(DBJob.id == job_id).first()
             if not job:
-                break # Job not found, stop streaming
+                break
 
-            # Stream new log messages
-            current_log_count = len(job.logs)
-            if current_log_count > last_log_count:
-                new_logs = job.logs[last_log_count:]
-                for log_msg in new_logs:
-                    yield f"event: log\ndata: {json.dumps({'message': log_msg})}\n\n"
-                last_log_count = current_log_count
-            
-            # Stream status/stage updates
-            yield f"event: status\ndata: {json.dumps({'status': job.status, 'stage': job.job_stage, 'progress': job.job_progress})}\n\n"
+            # Send status updates
+            status_data = {
+                'status': job.status, 
+                'stage': job.job_stage, 
+                'progress': job.job_progress
+            }
+            yield f"event: status\ndata: {json.dumps(status_data)}\n\n"
 
-            # Stream RAG status if applicable
-            if job.upload_to_rag:
-                 yield f"event: rag_status\ndata: {json.dumps({'rag_status': job.rag_status, 'can_query': job.rag_status == 'uploaded'})}\n\n"
-
-            # CRITICAL: Send the full result payload ONCE when it's ready
-            if job.status == 'completed' and job.result and not result_sent:
-                # Use the existing _dict_to_extracted_model logic to format data
-                enhanced_metadata = job.result.get("metadata", {}).copy()
-                if job.upload_to_rag:
-                    enhanced_metadata['rag_info'] = {
-                        'upload_requested': True,
-                        'rag_status': job.rag_status,
-                        'collection_name': job.rag_collection_name,
-                        'rag_error': job.rag_error,
-                        'can_query': job.rag_status == 'uploaded'
-                    }
+            # When job is completed, send result and close
+            if job.status == 'completed' and job.result and not completion_sent:
+                completion_sent = True
                 
+                # Send the full result
                 final_payload = {
                     "job_id": job.id,
                     "status": 'completed',
                     "original_query": job.result.get("original_query"),
                     "final_report_markdown": job.result.get("final_report_markdown"),
                     "extracted_data": _dict_to_extracted_model(job.result.get("extracted_data", {})).dict(),
-                    "metadata": enhanced_metadata
+                    "metadata": job.result.get("metadata", {})
                 }
                 yield f"event: result\ndata: {json.dumps(final_payload)}\n\n"
-                result_sent = True
-
-            # If the job is fully done (completed/failed and RAG is settled), close the stream.
-            is_rag_settled = not job.upload_to_rag or job.rag_status in ['uploaded', 'failed']
-            if job.status in ['completed', 'failed'] and is_rag_settled:
+                
+                # Close the connection
                 yield f"event: close\ndata: Job finished\n\n"
                 break
 
-            await asyncio.sleep(2) # Check for updates every 2 seconds
+            if job.status == 'failed':
+                yield f"event: close\ndata: Job failed\n\n"
+                break
 
-    except asyncio.CancelledError:
-        print(f"Client disconnected from job stream {job_id}")
+            await asyncio.sleep(2)
+            
     finally:
         db.close()
 
