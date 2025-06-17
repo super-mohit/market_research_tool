@@ -303,4 +303,3 @@ Distributed under the **MIT License**. See `LICENSE` for details.
 *   FastAPI & Uvicorn
 *   SQLAlchemy
 *   ReportLab
-*   Paint.org, CoatingsWorld.com, PCImag.com — publicly accessible content utilised for demonstration purposes only.
