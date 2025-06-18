@@ -411,29 +411,27 @@ async def get_job_rag_info(job_id: str, db: Session = Depends(get_db), current_u
 async def job_update_generator(job_id: str):
     """
     Yields real-time updates for a given job as Server-Sent Events.
+    This version uses short-lived DB sessions to avoid stale data reads.
     """
-    db = SessionLocal()
-    completion_sent = False
-    
-    try:
-        while True:
+    while True:
+        db = SessionLocal()  # <-- Session created on EACH loop iteration
+        try:
             job = db.query(DBJob).filter(DBJob.id == job_id).first()
             if not job:
+                logging.warning(f"SSE stream for job {job_id} terminated: Job not found in DB.")
                 break
 
             # Send status updates
             status_data = {
-                'status': job.status, 
-                'stage': job.job_stage, 
+                'status': job.status,
+                'stage': job.job_stage,
                 'progress': job.job_progress
             }
             yield f"event: status\ndata: {json.dumps(status_data)}\n\n"
 
-            # When job is completed, send result and close
-            if job.status == 'completed' and job.result and not completion_sent:
-                completion_sent = True
-                
-                # Send the full result
+            # Check for completion
+            if job.status == 'completed' and job.result:
+                logging.info(f"SSE stream for job {job_id}: Detected 'completed' status. Sending final result and closing.")
                 final_payload = {
                     "job_id": job.id,
                     "status": 'completed',
@@ -443,26 +441,27 @@ async def job_update_generator(job_id: str):
                     "metadata": job.result.get("metadata", {})
                 }
                 yield f"event: result\ndata: {json.dumps(final_payload)}\n\n"
-                
-                # Close the connection
                 yield f"event: close\ndata: Job finished\n\n"
-                break
+                break # Exit the loop
 
+            # Check for failure
             if job.status == 'failed':
+                logging.warning(f"SSE stream for job {job_id}: Detected 'failed' status. Closing connection.")
                 yield f"event: close\ndata: Job failed\n\n"
-                break
+                break # Exit the loop
 
-            await asyncio.sleep(2)
-            
-    finally:
-        db.close()
+        finally:
+            db.close()  # <-- Session closed on EACH loop iteration
+
+        # Wait before the next check
+        await asyncio.sleep(2)
 
 # --- NEW: SSE Endpoint ---
 @app.get("/api/research/stream/{job_id}")
 async def stream_research_status(
-    job_id: str,
-    token: str,  # FastAPI will get this from the query string
-    current_user: DBUser = Depends(get_current_user_from_query)  # Use the new dependency
+    job_id: str, 
+    # --- THIS IS THE CHANGE ---
+    current_user: DBUser = Depends(auth.get_user_from_header_or_query)
 ):
     # Verify the job belongs to the current user before streaming
     db = SessionLocal()

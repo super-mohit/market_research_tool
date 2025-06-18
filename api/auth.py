@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -91,3 +91,29 @@ async def get_current_user_from_query(token: str, db: Session = Depends(get_db))
     if user is None:
         raise credentials_exception
     return user 
+
+async def get_current_user_ws(
+    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+) -> DBUser:
+    # This is a fallback for when the token is passed as a query param
+    # In a real production app, you might want a more secure method like short-lived tickets
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return await get_current_user(token, db)
+
+# A new dependency that tries the header first, then a query parameter
+async def get_user_from_header_or_query(
+    request: Request, db: Session = Depends(get_db)
+) -> DBUser:
+    token = request.headers.get("Authorization")
+    if token and token.startswith("Bearer "):
+        token = token.split(" ")[1]
+    else:
+        token = request.query_params.get("token")
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+    return await get_current_user(token, db) 
