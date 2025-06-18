@@ -1,7 +1,9 @@
 # File: src/tasks.py (NEW FILE)
 import asyncio
 import logging
+import time
 from celery_worker import celery_app # Import our Celery app instance
+from api.sheets_logger import log_to_sheets # <-- Add this import
 
 # --- All the imports from the original run_and_store_results function ---
 from database.session import SessionLocal
@@ -18,6 +20,7 @@ def run_research_pipeline_task(job_id: str, query: str, should_upload_to_rag: bo
     It's the same logic as the old background task, but now it runs in a Celery worker.
     """
     logging.info(f"Celery task started for job_id: {job_id}")
+    start_time = time.time() # <-- Track start time
     db = SessionLocal()
     try:
         job = db.query(DBJob).filter(DBJob.id == job_id).first()
@@ -44,6 +47,16 @@ def run_research_pipeline_task(job_id: str, query: str, should_upload_to_rag: bo
                         if job_to_update.logs is None: job_to_update.logs = []
                         job_to_update.logs = job_to_update.logs + [message]
                     db_session.commit()
+                    
+                    # +++ NEW LOGGING FOR STAGES +++
+                    if stage:
+                        log_to_sheets(
+                            eventType="job_stage_update",
+                            jobId=job_id,
+                            status="running",
+                            stage=stage,
+                            details={"progress": progress}
+                        )
             finally:
                 db_session.close()
             await asyncio.sleep(0)
@@ -59,6 +72,17 @@ def run_research_pipeline_task(job_id: str, query: str, should_upload_to_rag: bo
         finally:
             loop.close()
         
+        duration = time.time() - start_time # <-- Calculate duration
+        
+        # +++ NEW LOGGING FOR COMPLETION +++
+        log_to_sheets(
+            eventType="job_completed",
+            jobId=job_id,
+            status="completed",
+            stage="finished",
+            details={"duration_seconds": round(duration, 2)}
+        )
+
         logging.info(f"Job {job_id}: Pipeline completed. Marking as COMPLETED immediately.")
         job.result = result_data
         job.status = 'completed'
@@ -88,12 +112,37 @@ def run_research_pipeline_task(job_id: str, query: str, should_upload_to_rag: bo
                             if collection_name:
                                 rag_job.rag_collection_name = collection_name
                                 rag_job.rag_status = 'uploaded'
+                                
+                                # +++ NEW LOGGING FOR RAG UPLOAD +++
+                                log_to_sheets(
+                                    eventType="rag_upload_status",
+                                    jobId=job_id,
+                                    status="success",
+                                    ragCollection=collection_name
+                                )
                             else:
                                 rag_job.rag_status = 'failed'
                                 rag_job.rag_error = 'RAG upload returned no collection name'
+                                
+                                # +++ NEW LOGGING FOR RAG FAILURE +++
+                                log_to_sheets(
+                                    eventType="rag_upload_status",
+                                    jobId=job_id,
+                                    status="failed",
+                                    errorMessage="Upload returned no collection name"
+                                )
                             rag_db.commit()
                 except Exception as rag_error:
                     logging.error(f"Job {job_id}: RAG upload failed.", exc_info=True)
+                    
+                    # +++ NEW LOGGING FOR RAG FAILURE +++
+                    log_to_sheets(
+                        eventType="rag_upload_status",
+                        jobId=job_id,
+                        status="failed",
+                        errorMessage=str(rag_error)
+                    )
+                    
                     with SessionLocal() as rag_db:
                         rag_job = rag_db.query(DBJob).filter(DBJob.id == job_id).first()
                         if rag_job:
@@ -106,6 +155,18 @@ def run_research_pipeline_task(job_id: str, query: str, should_upload_to_rag: bo
     
     except Exception as e:
         logging.error(f"Job {job_id}: Celery task failed with an unhandled exception.", exc_info=True)
+        duration = time.time() - start_time
+        
+        # +++ NEW LOGGING FOR JOB FAILURE +++
+        log_to_sheets(
+            eventType="job_failed",
+            jobId=job_id,
+            status="failed",
+            stage=job.job_stage, # Log the stage where it failed
+            errorMessage=str(e),
+            details={"duration_seconds": round(duration, 2)}
+        )
+        
         job.status = 'failed'
         job.job_stage = 'error'
         job.job_progress = 0

@@ -15,7 +15,7 @@ from pydantic import BaseModel, EmailStr
 
 # --- Logging Import ---
 from api.logging_config import setup_logging
-from api.sheets_logger import log_event
+from api.sheets_logger import log_to_sheets
 
 # --- DB Imports ---
 from database.session import SessionLocal, init_db, engine
@@ -112,8 +112,12 @@ def signup(user_in: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
-    # +++ Add Logging +++
-    log_event("user_signup", user_id=new_user.id, details={"email": new_user.email})
+    # +++ NEW LOGGING +++
+    log_to_sheets(
+        eventType="user_signup",
+        userId=new_user.id,
+        userEmail=new_user.email
+    )
 
     return new_user
 
@@ -127,8 +131,12 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # +++ Add Logging +++
-    log_event("user_login", user_id=user.id)
+    # +++ NEW LOGGING +++
+    log_to_sheets(
+        eventType="user_login",
+        userId=user.id,
+        userEmail=user.email
+    )
     
     access_token = auth.create_access_token(data={"sub": user.id})
     return {"access_token": access_token, "token_type": "bearer"}
@@ -174,13 +182,15 @@ async def create_research_job(
     db.commit()
     db.refresh(new_job)
 
-    # +++ Add Logging +++
-    log_event(
-        "job_created", 
-        user_id=current_user.id, 
-        job_id=new_job.id, 
+    # +++ NEW LOGGING +++
+    log_to_sheets(
+        eventType="job_created",
+        userId=current_user.id,
+        userEmail=current_user.email,
+        jobId=new_job.id,
         query=new_job.original_query,
-        details={"upload_to_rag": new_job.upload_to_rag}
+        status="pending",
+        details={"rag_requested": new_job.upload_to_rag}
     )
 
     # --- THIS IS THE KEY CHANGE ---
