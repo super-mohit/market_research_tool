@@ -1,7 +1,8 @@
-# File: database/session.py (Corrected Version)
+# File: database/session.py (REVISED)
 
 import os
-from sqlalchemy import create_engine
+import logging
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -13,8 +14,7 @@ if "@" in DATABASE_URL:
     log_db_url = DATABASE_URL.split('@')[-1]
 else:
     log_db_url = DATABASE_URL
-
-print(f"💽 Connecting to database at: {log_db_url}")
+logging.info(f"💽 Connecting to database at: {log_db_url}")
 
 # --- THIS IS THE CORRECTED LOGIC ---
 # Prepare keyword arguments for create_engine
@@ -38,8 +38,33 @@ Base = declarative_base()
 
 # Function to create all tables in the database
 def init_db():
-    print("Initializing database and creating tables (if they don't exist)...")
-    # This will create tables for all models that inherit from Base
-    from database.models import Job, User  # Import models here
-    Base.metadata.create_all(bind=engine, checkfirst=True)
-    print("Database initialized.")
+    """
+    Initializes the database. Uses a PostgreSQL advisory lock to prevent
+    race conditions when multiple gunicorn workers start simultaneously.
+    """
+    logging.info("Attempting to initialize database tables...")
+
+    # For non-PostgreSQL databases (like SQLite), just run the command.
+    if not DATABASE_URL.startswith("postgres"):
+        from database.models import User, Job
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+        logging.info("Database initialized (SQLite).")
+        return
+
+    # For PostgreSQL, use a lock.
+    # The number 12345 is an arbitrary lock ID. Any integer will do.
+    with engine.connect() as connection:
+        with connection.begin(): # Start a transaction
+            # Try to acquire a session-level advisory lock.
+            # This will block until the lock is available.
+            connection.execute(text("SELECT pg_advisory_xact_lock(12345)"))
+            
+            logging.info("Acquired DB lock. Checking schema...")
+            
+            # Now that we have the lock, we can safely create tables.
+            from database.models import User, Job
+            Base.metadata.create_all(bind=engine, checkfirst=True)
+            
+            logging.info("Schema check/creation complete. Releasing lock.")
+        # The lock is automatically released when the transaction block ends.
+    logging.info("Database initialization process finished.")
