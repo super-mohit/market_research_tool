@@ -39,47 +39,40 @@ def synthesize_final_report(
     target_years = f"{current_year - constants.RECENT_YEARS + 1}-{current_year}"
 
     system_instruction = (
-        f"You are the Chief Market Intelligence Officer for a global chemical company. Your audience is the CEO and the Board of Directors. Your task is to synthesize a collection of internal research briefings into a single, cohesive, and forward-looking executive report. Today is {current_date.strftime('%B %d, %Y')}.\n\n"
+        "You are a world-class market intelligence analyst. Your task is to synthesize a collection of research briefings into a single, cohesive, and forward-looking executive report. Your analysis must be sharp, data-driven, and focused on strategic implications.\n\n"
         
         "**MANDATE: Synthesize, Don't Summarize.**\n"
-        "Do not simply concatenate the provided intermediate reports. Your value is in finding the 'golden threads' that connect them. Identify the overarching trends, reconcile conflicting data points, and expose the critical strategic narrative hidden within the details. For every fact, you must answer the business-critical question: **'So what?'**\n\n"
+        "Your value is in finding the 'golden threads' that connect the provided reports. Identify overarching trends, reconcile conflicting data, and expose the critical strategic narrative hidden within the details. For every fact, you must answer the business-critical question: **'So what?'**\n\n"
         
-        "**STRATEGIC REPORT STRUCTURE:**\n"
-        "Structure your brief using the following Markdown format. Each section must be analytical and focused on strategic implications.\n\n"
+        "**STRATEGIC REPORT STRUCTURE & OUTPUT FORMAT:**\n"
+        "You MUST begin your response *directly* with the level-1 markdown header `# Executive Summary`. Do not add any preamble, titles, TO/FROM/DATE lines, or any text before this first header.\n\n"
         
-        "1.  **Executive Summary (The 3-Minute Briefing)**\n"
-        "    - Start with the single most critical conclusion from this research.\n"
-        "    - Present 2-3 key opportunities and threats that demand immediate leadership attention.\n"
-        "    - Conclude with the bottom-line impact for our company.\n\n"
+        "Follow this exact Markdown structure:\n\n"
         
-        "2.  **Market Trajectory & Headwinds**\n"
-        "    - Synthesize market size and growth forecasts. Where are the pockets of growth, and where is the market stagnating?\n"
-        "    - What are the primary economic or consumer behavior trends driving demand?\n\n"
+        "# Executive Summary\n"
+        "_(Start with the single most critical conclusion. Present 2-3 key opportunities/threats. Conclude with the bottom-line impact.)_\n\n"
         
-        "3.  **Competitive Arena: Key Moves & Vulnerabilities**\n"
-        "    - Analyze the strategic maneuvers of key competitors (e.g., PPG, AkzoNobel, BASF). Where are they investing? Where do they appear weak?\n"
-        "    - Highlight any M&A activity or partnerships that could reshape the market.\n\n"
+        "## Market Trajectory & Headwinds\n"
+        "_(Synthesize market size/growth forecasts. Identify primary drivers.)_\n\n"
         
-        "4.  **Technology & Innovation: The Next Frontier**\n"
-        "    - What are the 1-2 breakthrough technologies that could disrupt the market (e.g., in sustainability, application, performance)?\n"
-        "    - What does the patent landscape suggest about the future of coatings R&D?\n\n"
+        "## Competitive Arena\n"
+        "_(Analyze key competitor maneuvers, investments, and vulnerabilities. Highlight M&A or partnerships.)_\n\n"
         
-        "5.  **Regulatory & ESG: Risks and Opportunities**\n"
-        "    - What new regulations or environmental standards pose the greatest risk to our current product portfolio?\n"
-        "    - How can we leverage sustainability trends (e.g., circular economy, bio-based materials) into a competitive advantage?\n\n"
+        "## Technology & Innovation Frontier\n"
+        "_(Identify 1-2 breakthrough technologies. What does the patent landscape suggest?)_\n\n"
         
-        "6.  **Actionable Strategic Recommendations**\n"
-        "    - **This is the most important section.** Provide 3-5 specific, bold, and actionable recommendations.\n"
-        "    - Frame them as clear directives. Example: 'Recommend allocating an additional $5M in R&D to develop a proprietary scuff-resistant resin to counter Competitor X's new product launch' instead of 'We should invest in R&D.'\n\n"
+        "## Regulatory & ESG Landscape\n"
+        "_(What are the primary risks from new standards? How can we leverage sustainability trends?)_\n\n"
         
-        "**EXECUTIVE COMMUNICATION PROTOCOL:**\n"
-        "•   **Be Decisive & Direct:** Use strong, declarative sentences. Lead with the conclusion, then provide brief evidence. Avoid hedging language like 'it seems' or 'it could be'.\n"
-        "•   **Prioritize Brevity:** Use bullet points for everything possible. Each section should be scannable in seconds. The entire report should be digestible in under 5 minutes.\n"
-        "•   **Focus on Insight, Not Information:** Do not just list facts. State the insight derived from the fact. BAD: 'Company X launched a new product.' GOOD: 'Company X's new product launch directly threatens our market share in the premium segment, representing a potential 10% revenue risk.'\n"
-        "•   **Quantify Everything:** Use all available figures, percentages, and timelines to support your analysis. Estimate when necessary, and state that it is an estimate.\n"
-        "•   **Reference Integrity:** Do NOT include inline citations. A reference list of the source URLs will be appended automatically.\n\n"
-        
-        "**DELIVERABLE:** A polished, professional Markdown report that can be directly used for the company's strategic planning session."
+        "## Actionable Strategic Recommendations\n"
+        "_(This is the most important section. Provide 3-5 specific, bold, and actionable directives. Frame them as clear recommendations, e.g., 'Recommend allocating an additional $5M in R&D...' instead of 'We should invest...')_\n\n"
+
+        "**COMMUNICATION PROTOCOL:**\n"
+        "•   **Be Decisive & Direct:** Use strong, declarative sentences. Lead with the conclusion.\n"
+        "•   **Prioritize Brevity:** Use bullet points extensively.\n"
+        "•   **Focus on Insight:** Do not just list facts; state the insight derived from the fact.\n"
+        "•   **Quantify Everything:** Use all available figures, percentages, and timelines.\n"
+        "•   **No Citations:** Do not include inline citations `[1]`. A reference list is added automatically later."
     )
 
     # Combine system instruction with user instruction since Gemini only accepts "user" and "model" roles
@@ -116,13 +109,14 @@ def synthesize_final_report(
         )
         final_text = "".join(chunk.text for chunk in stream).strip()
 
-        removed_count = len(all_original_urls)
-        if removed_count < 12:   # keeps report honest if data set is now small
-            final_text = (
-                f"> **Note ·**  After applying the {constants.RECENT_YEARS}-year "
-                "freshness filter only "
-                f"{removed_count} source URLs remained.\n\n"
-            ) + final_text
+        # Note: Freshness filter note removed for cleaner final reports
+        # removed_count = len(all_original_urls)
+        # if removed_count < 12:   # keeps report honest if data set is now small
+        #     final_text = (
+        #         f"> **Note ·**  After applying the {constants.RECENT_YEARS}-year "
+        #         "freshness filter only "
+        #         f"{removed_count} source URLs remained.\n\n"
+        #     ) + final_text
 
         final_with_refs = _add_references_section(final_text, all_original_urls)
         filepath = _save_final_report(final_with_refs, original_user_query, output_dir)

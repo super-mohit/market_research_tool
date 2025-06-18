@@ -12,13 +12,14 @@ EMAIL_SKILL_ID = os.getenv("EMAIL_SKILL_ID")
 
 API_URL = "https://api.supervity.ai/botapi/draftSkills/v2/execute/"
 
-async def send_report_email(user_name: str, user_email: str, pdf_link: str, query: str):
+async def send_report_email(user_name: str, user_email: str, company_name: str, pdf_link: str, query: str):
     """
     Calls the Supervity email agent by sending a direct JSON payload.
 
     Args:
         user_name: The name of the recipient.
         user_email: The email address of the recipient.
+        company_name: The name of the recipient's company.
         pdf_link: The permanent URL to the generated PDF report.
         query: The original research query that prompted the report.
     """
@@ -31,6 +32,7 @@ async def send_report_email(user_name: str, user_email: str, pdf_link: str, quer
     input_text_payload = {
         "receiver_name": user_name,
         "receiver_email": user_email,
+        "company_name": company_name,
         "file_link": pdf_link,
         "original_query": query,
         # You can add any other fields the agent might need here

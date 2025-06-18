@@ -1,1 +1,0 @@
-Please place your supervity-logo.png file in the src/templates/ directory

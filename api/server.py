@@ -41,7 +41,7 @@ from src.rag_uploader import query_rag_collection
 from src.tasks import run_research_pipeline_task
 
 # +++ Import PDF generation and email utilities +++
-from src.utils.pdf_generator import SimplifiedPDFGenerator
+from src.utils.pdf_generator import ProfessionalPDFGenerator
 from src.utils.email_agent import send_report_email
 from src.utils.gdrive_uploader import upload_pdf_to_gdrive
 
@@ -515,7 +515,7 @@ async def download_research_pdf(
     report_title = job.original_query[:80] # Truncate title
 
     try:
-        pdf_generator = SimplifiedPDFGenerator()
+        pdf_generator = ProfessionalPDFGenerator()
         pdf_bytes = pdf_generator.generate_pdf_from_markdown(report_md, report_title, current_user.name or current_user.email)
 
         file_name = f"Supervity_Report_{job_id[:8]}.pdf"
@@ -544,7 +544,7 @@ async def email_research_report(
         # Step 1: Generate the PDF in memory
         report_md = job.result.get("final_report_markdown", "No content.")
         report_title = job.original_query[:80]
-        pdf_generator = SimplifiedPDFGenerator()
+        pdf_generator = ProfessionalPDFGenerator()
         pdf_bytes = pdf_generator.generate_pdf_from_markdown(report_md, report_title, current_user.name or current_user.email)
 
         # Step 2: Upload PDF to Google Drive for a permanent link

@@ -5,119 +5,108 @@ from weasyprint import HTML, CSS
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from datetime import datetime
 import logging
+import re
+from bs4 import BeautifulSoup
 
-class SimplifiedPDFGenerator:
+class ProfessionalPDFGenerator:
     """
-    A simplified PDF generator that takes markdown content and renders it
-    into a styled PDF using a Jinja2 template.
+    Generates a high-quality, professionally styled PDF report from markdown content.
+    Features a cover page, table of contents, and rich styling.
     """
     def __init__(self):
-        # The template directory is now relative to this file
         self.template_dir = Path(__file__).parent.parent / 'templates'
         self.template_name = 'report_template.html'
         
         if not self.template_dir.exists():
             os.makedirs(self.template_dir)
             logging.warning(f"Template directory created at {self.template_dir}")
-
+        
         self.env = Environment(
             loader=FileSystemLoader(self.template_dir),
             autoescape=select_autoescape(['html', 'xml'])
         )
 
         self.md = markdown.Markdown(extensions=[
-            'extra', 'meta', 'codehilite', 'admonition', 'attr_list', 'toc'
+            'extra', 'toc', 'fenced_code', 'codehilite', 'tables'
         ])
+
+    def _generate_toc_html(self, soup: BeautifulSoup) -> str:
+        """Generates a table of contents HTML from h1 and h2 tags."""
+        toc_entries = []
+        for header in soup.find_all(['h1', 'h2']):
+            header_id = header.get('id')
+            if not header_id:
+                # Create a slug for the ID if it doesn't exist
+                header_text = header.get_text(strip=True)
+                header_id = re.sub(r'[^\w\s-]', '', header_text).strip()
+                header_id = re.sub(r'[-\s]+', '-', header_id).lower()
+                header['id'] = header_id
+            
+            level = 1 if header.name == 'h1' else 2
+            toc_entries.append({
+                'level': level,
+                'text': header.get_text(strip=True),
+                'id': header_id
+            })
+
+        if not toc_entries:
+            return "<p>No sections found.</p>"
+
+        html = '<ul class="toc-list">'
+        for entry in toc_entries:
+            html += f'''
+            <li class="toc-level-{entry["level"]}">
+                <a href="#{entry["id"]}">
+                    <span class="toc-text">{entry["text"]}</span>
+                    <span class="toc-dots"></span>
+                </a>
+            </li>'''
+        html += '</ul>'
+        return html
 
     def generate_pdf_from_markdown(self, markdown_content: str, report_title: str, user_name: str) -> bytes:
         """
-        Generates a PDF from a single markdown string.
-
-        Args:
-            markdown_content: The full markdown content of the report.
-            report_title: The title for the report cover page.
-            user_name: The name of the user who generated the report.
-
-        Returns:
-            bytes: The generated PDF content as a byte stream.
+        Main function to generate the PDF byte stream from markdown.
         """
         try:
-            # Check for and create the template if it doesn't exist
-            self._ensure_template_exists()
-
-            self.template = self.env.get_template(self.template_name)
-
+            template = self.env.get_template(self.template_name)
+            
+            # Convert markdown to HTML and generate TOC
             html_body = self.md.convert(markdown_content)
+            soup = BeautifulSoup(html_body, 'html.parser')
+            toc_html = self._generate_toc_html(soup)
+            
+            # The body needs to be a string for the template
+            final_html_body = str(soup)
 
             context = {
                 'report_title': report_title,
                 'user_name': user_name,
                 'generation_date': datetime.now().strftime('%B %d, %Y'),
-                'html_body': html_body,
+                'html_body': final_html_body,
+                'toc_html': toc_html,
                 'logo_path': self._get_asset_path('supervity-logo.png')
             }
 
-            html_string = self.template.render(**context)
+            rendered_html = template.render(**context)
             
-            # For debugging, you can save the intermediate HTML
-            # with open("debug_report.html", "w", encoding="utf-8") as f:
-            #     f.write(html_string)
-
-            base_css = CSS(string="""
-                @page { size: A4; margin: 2cm; }
-                body { font-family: sans-serif; line-height: 1.6; color: #333; }
-                h1, h2, h3 { color: #000b37; }
-                h1 { font-size: 24pt; page-break-before: always; }
-                h2 { font-size: 18pt; border-bottom: 2px solid #85c20b; padding-bottom: 5px; margin-top: 1.5em; }
-                table { border-collapse: collapse; width: 100%; margin: 1em 0; }
-                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                th { background-color: #f2f2f2; }
-                .cover { page-break-after: always; text-align: center; padding-top: 4cm; }
-                .cover img { max-width: 200px; margin-bottom: 2cm; }
-            """)
+            # Create HTML object and generate PDF
+            html = HTML(string=rendered_html, base_url=str(self.template_dir.resolve()))
+            pdf_bytes = html.write_pdf()
             
-            html = HTML(string=html_string, base_url=str(self.template_dir))
-            pdf_bytes = html.write_pdf(stylesheets=[base_css])
-            
-            logging.info("PDF generated successfully in memory.")
+            logging.info("Professional PDF generated successfully in memory.")
             return pdf_bytes
 
         except Exception as e:
-            logging.error(f"Error generating PDF: {e}", exc_info=True)
+            logging.error(f"Error generating professional PDF: {e}", exc_info=True)
             raise
 
     def _get_asset_path(self, asset_name: str) -> str:
+        """Get the file:// URL for an asset in the templates directory."""
         asset_path = self.template_dir / asset_name
+        if not asset_path.exists():
+            logging.warning(f"Asset {asset_name} not found at {asset_path}")
         return f"file://{asset_path.resolve()}"
 
-    def _ensure_template_exists(self):
-        template_file = self.template_dir / self.template_name
-        if not template_file.exists():
-            logging.info(f"Template not found. Creating a default at {template_file}")
-            default_template_html = """
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>{{ report_title }}</title>
-</head>
-<body>
-    <div class="cover">
-        <img src="{{ logo_path }}" alt="Supervity Logo">
-        <h1>Market Intelligence Report</h1>
-        <h2>{{ report_title }}</h2>
-        <p>Prepared for: {{ user_name }}</p>
-        <p>Date: {{ generation_date }}</p>
-    </div>
-    {{ html_body | safe }}
-</body>
-</html>
-"""
-            with open(template_file, "w", encoding="utf-8") as f:
-                f.write(default_template_html)
-            
-            # Also create a dummy logo if it doesn't exist
-            logo_file = self.template_dir / 'supervity-logo.png'
-            if not logo_file.exists():
-                # You should copy your actual logo here. This is a placeholder.
-                logging.warning("supervity-logo.png not found. Please place it in the src/templates/ directory.") 
+# Maintain backward compatibility
+SimplifiedPDFGenerator = ProfessionalPDFGenerator 
