@@ -42,7 +42,7 @@ from src.tasks import run_research_pipeline_task
 
 # +++ Import PDF generation and email utilities +++
 from src.utils.pdf_generator import ProfessionalPDFGenerator
-from src.utils.email_agent import send_report_email
+from src.utils.email_agent import send_report_email_via_file
 from src.utils.gdrive_uploader import upload_pdf_to_gdrive
 
 # +++ NEW: Pydantic models for auth +++
@@ -557,10 +557,10 @@ async def email_research_report(
         if not pdf_link:
             raise Exception("Failed to upload PDF to Google Drive.")
 
-        # Step 3: Trigger the email agent with the correct arguments
-        await send_report_email(
+        # Step 3: Trigger the email agent via file upload
+        await send_report_email_via_file(
             receiver_email=current_user.email,
-            company_name=current_user.company_name or "Valued Partner", # Use company name from DB
+            company_name=current_user.company_name or "Valued Partner",
             file_link=pdf_link
         )
 
