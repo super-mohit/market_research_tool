@@ -13,7 +13,7 @@ EMAIL_SKILL_ID = os.getenv("EMAIL_SKILL_ID")
 
 API_URL = "https://api.supervity.ai/botapi/draftSkills/v2/execute/"
 
-async def send_report_email_via_file(receiver_email: str, company_name: str, file_link: str):
+async def send_report_email_via_file(receiver_email: str, company_name: str, file_link: str, query: str):
     """
     Calls the Supervity email agent by sending the payload as a temporary text file.
     This matches the `inputFiles` curl command.
@@ -24,7 +24,8 @@ async def send_report_email_via_file(receiver_email: str, company_name: str, fil
     payload_content = {
         "receiver_email": receiver_email,
         "company_name": company_name,
-        "file_link": file_link
+        "file_link": file_link,
+        "original_query": query
     }
 
     # The API expects form data, not a JSON body

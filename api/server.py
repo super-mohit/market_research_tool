@@ -561,7 +561,8 @@ async def email_research_report(
         await send_report_email_via_file(
             receiver_email=current_user.email,
             company_name=current_user.company_name or "Valued Partner",
-            file_link=pdf_link
+            file_link=pdf_link,
+            query=job.original_query
         )
 
         return {"message": "Report is being sent to your email."}
