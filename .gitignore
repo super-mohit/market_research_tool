@@ -2,6 +2,9 @@
 .env
 venv/
 
+# Google Drive Service Account (NEVER commit this!)
+gdrive_service_account.json
+
 # Python
 __pycache__/
 *.pyc

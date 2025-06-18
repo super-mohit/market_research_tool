@@ -9,9 +9,13 @@ from fastapi.security import OAuth2PasswordRequestForm
 import asyncio
 import json
 import requests
+import httpx
 from sqlalchemy.orm import Session
 from sqlalchemy import text, desc
 from pydantic import BaseModel, EmailStr
+from typing import Optional
+from io import BytesIO
+import tempfile
 
 # --- Logging Import ---
 from api.logging_config import setup_logging
@@ -36,20 +40,31 @@ from src.rag_uploader import query_rag_collection
 # +++ Import the Celery task +++
 from src.tasks import run_research_pipeline_task
 
+# +++ Import PDF generation and email utilities +++
+from src.utils.pdf_generator import SimplifiedPDFGenerator
+from src.utils.email_agent import send_report_email
+from src.utils.gdrive_uploader import upload_pdf_to_gdrive
+
 # +++ NEW: Pydantic models for auth +++
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
+    name: str  # <-- ADD THIS
 
 class UserPublic(BaseModel):
     id: str
     email: EmailStr
+    name: Optional[str] = None  # <-- ADD THIS
     class Config:
         from_attributes = True
 
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+# +++ NEW: Pydantic model for email requests +++
+class EmailRequest(BaseModel):
+    pass # No body needed, user is identified by token
 
 # --- App Setup ---
 app = FastAPI(
@@ -105,7 +120,8 @@ def signup(user_in: UserCreate, db: Session = Depends(get_db)):
     hashed_password = auth.get_password_hash(user_in.password)
     new_user = DBUser(
         id=str(uuid.uuid4()),
-        email=user_in.email, 
+        email=user_in.email,
+        name=user_in.name,  # <-- ADD THIS
         hashed_password=hashed_password
     )
     db.add(new_user)
@@ -356,7 +372,7 @@ async def ask_rag_collection(query_request: RAGQueryRequest, db: Session = Depen
         logging.info(f"Question: {query_request.question}")
 
         # Pass the current context from the DB
-        answer_payload = query_rag_collection(
+        answer_payload = await query_rag_collection(
             collection_name=query_request.collection_name,
             question=query_request.question,
             current_chat_context=job.rag_chat_context # Pass current context
@@ -384,11 +400,6 @@ async def ask_rag_collection(query_request: RAGQueryRequest, db: Session = Depen
     except ValueError as e:
         logging.error(f"RAG configuration error: {str(e)}")
         raise HTTPException(status_code=400, detail=f"RAG system not properly configured: {str(e)}")
-    except requests.exceptions.HTTPError as e:
-        status_code = e.response.status_code if e.response else 500
-        error_detail = e.response.text if e.response else str(e)
-        logging.error(f"RAG API HTTP error: {status_code} - {error_detail}")
-        raise HTTPException(status_code=status_code, detail=f"Error from RAG API: {error_detail}")
     except Exception as e:
         logging.error(f"Unexpected error in RAG query: {str(e)}", exc_info=True)
         import traceback
@@ -487,3 +498,73 @@ async def stream_research_status(
         db.close()
     
     return StreamingResponse(job_update_generator(job_id), media_type="text/event-stream")
+
+
+# +++ NEW: PDF download endpoint +++
+@app.get("/api/research/{job_id}/download-pdf")
+async def download_research_pdf(
+    job_id: str, 
+    db: Session = Depends(get_db), 
+    current_user: DBUser = Depends(auth.get_current_user)
+):
+    job = db.query(DBJob).filter(DBJob.id == job_id, DBJob.user_id == current_user.id).first()
+    if not job or job.status != 'completed':
+        raise HTTPException(status_code=404, detail="Completed job not found")
+
+    report_md = job.result.get("final_report_markdown", "No content available.")
+    report_title = job.original_query[:80] # Truncate title
+
+    try:
+        pdf_generator = SimplifiedPDFGenerator()
+        pdf_bytes = pdf_generator.generate_pdf_from_markdown(report_md, report_title, current_user.name or current_user.email)
+
+        file_name = f"Supervity_Report_{job_id[:8]}.pdf"
+        headers = {'Content-Disposition': f'attachment; filename="{file_name}"'}
+        
+        return StreamingResponse(BytesIO(pdf_bytes), media_type="application/pdf", headers=headers)
+
+    except Exception as e:
+        logging.error(f"PDF generation failed for job {job_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to generate PDF report.")
+
+
+# +++ NEW: Email report endpoint +++
+@app.post("/api/research/{job_id}/email-report", status_code=202)
+async def email_research_report(
+    job_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(auth.get_current_user)
+):
+    job = db.query(DBJob).filter(DBJob.id == job_id, DBJob.user_id == current_user.id).first()
+    if not job or job.status != 'completed':
+        raise HTTPException(status_code=404, detail="Completed job not found")
+    
+    try:
+        # Step 1: Generate the PDF in memory
+        report_md = job.result.get("final_report_markdown", "No content.")
+        report_title = job.original_query[:80]
+        pdf_generator = SimplifiedPDFGenerator()
+        pdf_bytes = pdf_generator.generate_pdf_from_markdown(report_md, report_title, current_user.name or current_user.email)
+
+        # Step 2: Upload PDF to Google Drive for a permanent link
+        file_name = f"Supervity_Report_{job_id[:8]}_{current_user.email}.pdf"
+        pdf_link = upload_pdf_to_gdrive(pdf_bytes, file_name)
+
+        if not pdf_link:
+            raise Exception("Failed to upload PDF to Google Drive.")
+
+        # Step 3: Trigger the email agent with the permanent link
+        await send_report_email(
+            user_name=current_user.name or "Valued User",
+            user_email=current_user.email,
+            company_name="Your Company", # You might want to store this in the User model
+            pdf_link=pdf_link,
+            query=job.original_query
+        )
+
+        return {"message": "Report is being sent to your email."}
+
+    except Exception as e:
+        logging.error(f"Emailing report for job {job_id} failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to email report: {e}")

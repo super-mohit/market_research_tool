@@ -7,6 +7,7 @@ google-api-core==2.25.1
 google-api-python-client==2.172.0
 google-auth==2.40.3
 google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.1
 google-genai>=1.20.0,<2.0
 googleapis-common-protos==1.70.0
 h11==0.16.0
@@ -44,3 +45,8 @@ websockets==15.0.1
 fastapi==0.110.0
 uvicorn[standard]==0.29.0
 python-dateutil==2.9.0
+weasyprint
+jinja2
+beautifulsoup4
+PyYAML
+markdown

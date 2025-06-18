@@ -15,10 +15,12 @@ Key Features:
 """
 
 import requests
+import httpx
 import json
 import time
 import tempfile
 import os
+import logging
 from io import BytesIO
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -390,10 +392,10 @@ def _upload_document(collection_name: str, document_name: str, json_data: dict):
         if os.path.exists(pdf_file_path):
             os.remove(pdf_file_path)
 
-def query_rag_collection(collection_name: str, question: str, current_chat_context: str = "") -> dict:
+async def query_rag_collection(collection_name: str, question: str, current_chat_context: str = "") -> dict:
     """
-    Calls the /app/v2/QueryDocument endpoint.
-    Manages chat context via passed-in arguments, it is STATELESS.
+    Calls the /app/v2/QueryDocument endpoint using an ASYNCHRONOUS client.
+    Manages chat context via passed-in arguments; it is STATELESS.
 
     Args:
         collection_name (str): Name of the collection to query
@@ -404,8 +406,8 @@ def query_rag_collection(collection_name: str, question: str, current_chat_conte
         dict: The full RAG response payload from the API.
     """
     config.assert_rag_env()
-    print(f"Querying RAG collection '{collection_name}' with question: '{question}'")
-    print(f"   -> Sending chat context (length: {len(current_chat_context)} chars)")
+    logging.info(f"Querying RAG collection '{collection_name}' with question: '{question}'")
+    logging.info(f"   -> Sending chat context (length: {len(current_chat_context)} chars)")
 
     headers = {
         "X-Api-Token": config.RAG_API_TOKEN,
@@ -425,17 +427,21 @@ def query_rag_collection(collection_name: str, question: str, current_chat_conte
     url = f"{config.RAG_API_BASE_URL}/app/v2/QueryDocument"
 
     try:
-        response = requests.post(url, headers=headers, data=data)
-        response.raise_for_status()
+        # Use httpx.AsyncClient for non-blocking I/O with a 4-minute timeout
+        async with httpx.AsyncClient(timeout=240.0) as client:
+            response = await client.post(url, headers=headers, data=data)
+        
+        response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
         result = response.json()
         
-        # The function is now stateless. It just returns the result.
-        # The caller is responsible for updating the context.
-        print(f"   -> Received response from RAG API.")
+        logging.info("   -> Received response from RAG API.")
         return result
         
-    except requests.exceptions.HTTPError as e:
-        print(f"Error querying RAG. Status: {e.response.status_code}, Body: {e.response.text}")
+    except httpx.HTTPStatusError as e:
+        logging.error(f"Error querying RAG. Status: {e.response.status_code}, Body: {e.response.text}")
+        raise e
+    except httpx.RequestError as e:
+        logging.error(f"An error occurred while requesting {e.request.url!r}.")
         raise e
 
 
