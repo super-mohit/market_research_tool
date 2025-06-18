@@ -109,15 +109,6 @@ def synthesize_final_report(
         )
         final_text = "".join(chunk.text for chunk in stream).strip()
 
-        # Note: Freshness filter note removed for cleaner final reports
-        # removed_count = len(all_original_urls)
-        # if removed_count < 12:   # keeps report honest if data set is now small
-        #     final_text = (
-        #         f"> **Note ·**  After applying the {constants.RECENT_YEARS}-year "
-        #         "freshness filter only "
-        #         f"{removed_count} source URLs remained.\n\n"
-        #     ) + final_text
-
         final_with_refs = _add_references_section(final_text, all_original_urls)
         filepath = _save_final_report(final_with_refs, original_user_query, output_dir)
 

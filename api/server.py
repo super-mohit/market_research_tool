@@ -49,12 +49,14 @@ from src.utils.gdrive_uploader import upload_pdf_to_gdrive
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
-    name: str  # <-- ADD THIS
+    name: str
+    company_name: str  # <--- ADD THIS
 
 class UserPublic(BaseModel):
     id: str
     email: EmailStr
-    name: Optional[str] = None  # <-- ADD THIS
+    name: Optional[str] = None
+    company_name: Optional[str] = None  # <--- ADD THIS
     class Config:
         from_attributes = True
 
@@ -121,7 +123,8 @@ def signup(user_in: UserCreate, db: Session = Depends(get_db)):
     new_user = DBUser(
         id=str(uuid.uuid4()),
         email=user_in.email,
-        name=user_in.name,  # <-- ADD THIS
+        name=user_in.name,
+        company_name=user_in.company_name,  # <--- SAVE THE COMPANY NAME
         hashed_password=hashed_password
     )
     db.add(new_user)
@@ -554,13 +557,11 @@ async def email_research_report(
         if not pdf_link:
             raise Exception("Failed to upload PDF to Google Drive.")
 
-        # Step 3: Trigger the email agent with the permanent link
+        # Step 3: Trigger the email agent with the correct arguments
         await send_report_email(
-            user_name=current_user.name or "Valued User",
-            user_email=current_user.email,
-            company_name="Your Company", # You might want to store this in the User model
-            pdf_link=pdf_link,
-            query=job.original_query
+            receiver_email=current_user.email,
+            company_name=current_user.company_name or "Valued Partner", # Use company name from DB
+            file_link=pdf_link
         )
 
         return {"message": "Report is being sent to your email."}

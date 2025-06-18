@@ -1,238 +1,36 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>{{ report_title }}</title>
-    <style>
-        /* --- General & Page Setup --- */
-        @page {
-            size: A4;
-            margin: 2cm;
-            @bottom-right {
-                content: "Page " counter(page) " of " counter(pages);
-                font-size: 9pt;
-                color: #666;
-            }
-        }
-        @page:first {
-            /* Special rules for the very first page (cover) */
-            margin: 0;
-            @bottom-right { content: normal; }
-        }
-        body {
-            font-family: 'Helvetica Neue', 'Arial', sans-serif;
-            font-size: 11pt;
-            line-height: 1.6;
-            color: #333333;
-        }
-
-        /* --- Cover Page Styling --- */
-        #cover {
-            page-break-after: always;
-            background-color: #f8f9fa;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-        }
-        #cover .cover-content {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-        #cover .logo {
-            width: 200px; /* Adjust as needed */
-            margin-bottom: 2cm;
-        }
-        #cover .report-title {
-            font-size: 28pt;
-            color: #000b37; /* Supervity Navy */
-            margin: 0;
-            font-weight: bold;
-        }
-        #cover .report-subtitle {
-            font-size: 16pt;
-            color: #474747; /* Supervity Dark Gray */
-            margin-top: 0.5cm;
-            font-weight: normal;
-            max-width: 80%;
-            line-height: 1.4;
-        }
-        #cover .meta-info {
-            margin-top: 3cm;
-            font-size: 12pt;
-            color: #666;
-        }
-        #cover .meta-info p {
-            margin: 0.5em 0;
-        }
-        #cover .footer {
-            position: absolute;
-            bottom: 1cm;
-            left: 0;
-            right: 0;
-            font-size: 10pt;
-            color: #999;
-            text-align: center;
-        }
-
-        /* --- Table of Contents Styling --- */
-        #toc {
-            page-break-after: always;
-            page-break-before: always;
-        }
-        #toc .toc-title {
-            font-size: 24pt;
-            color: #000b37;
-            border-bottom: 3px solid #85c20b; /* Supervity Lime */
-            padding-bottom: 0.25cm;
-            margin-bottom: 1cm;
-        }
-        #toc .toc-list {
-            list-style-type: none;
-            padding-left: 0;
-        }
-        #toc .toc-level-1 {
-            font-weight: bold;
-            margin-top: 0.5em;
-            font-size: 1.1em;
-        }
-        #toc .toc-level-2 {
-            padding-left: 1.5em;
-            font-weight: normal;
-            font-size: 0.95em;
-            margin-top: 0.3em;
-        }
-        #toc a {
-            text-decoration: none;
-            color: inherit;
-            display: flex;
-            justify-content: space-between;
-        }
-        #toc a .toc-dots {
-            flex-grow: 1;
-            border-bottom: 1px dotted #ccc;
-            height: 1em;
-            margin: 0 0.5em;
-        }
-
-        /* --- Main Report Body Styling --- */
-        #report-body {
-            page-break-before: always;
-        }
-        #report-body h1, #report-body h2, #report-body h3, #report-body h4 {
-            color: #000b37;
-            font-weight: 600;
-            page-break-after: avoid;
-            margin-top: 1.5em;
-        }
-        #report-body h1 {
-            font-size: 22pt;
-            margin-top: 0;
-            border-bottom: 2px solid #85c20b;
-            padding-bottom: 8px;
-        }
-        #report-body h2 {
-            font-size: 16pt;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 6px;
-        }
-        #report-body h3 {
-            font-size: 14pt;
-        }
-        #report-body p {
-            text-align: justify;
-            margin: 0.5em 0;
-        }
-        #report-body ul, #report-body ol {
-            margin: 0.5em 0 0.5em 2em;
-        }
-        #report-body li {
-            margin: 0.3em 0;
-        }
-        #report-body table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1em 0;
-            page-break-inside: avoid;
-        }
-        #report-body th, #report-body td {
-            border: 1px solid #ccc;
-            padding: 8px 12px;
-            text-align: left;
-        }
-        #report-body th {
-            background-color: #f2f2f2;
-            font-weight: bold;
-        }
-        #report-body tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        #report-body blockquote {
-            margin: 1em 0;
-            padding: 1em;
-            background-color: #f0f7ff; /* Light blue background */
-            border-left: 5px solid #8289ec; /* Supervity Soft Blue */
-            font-style: italic;
-        }
-        #report-body code {
-            background-color: #f5f5f5;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-        }
-        #report-body pre {
-            background-color: #f5f5f5;
-            padding: 1em;
-            border-radius: 5px;
-            overflow-x: auto;
-            font-family: 'Courier New', monospace;
-        }
-
-        /* --- References Section --- */
-        #report-body hr {
-            border: none;
-            border-top: 2px solid #85c20b;
-            margin: 2em 0;
-        }
-    </style>
 </head>
 <body>
-    <!-- 
-      This is the Cover Page.
-    -->
-    <section id="cover">
-        <div class="cover-content">
-            <img src="{{ logo_path }}" alt="Supervity Logo" class="logo">
-            <h1 class="report-title">Market Intelligence Report</h1>
+    <!-- Page 1: Cover Page -->
+    <section class="cover-page">
+        <div class="header">
+            <img src="{{ logo_path }}" class="logo" alt="Supervity Logo">
+        </div>
+        <div class="main-content">
+            <h1 class="report-main-title">Market Intelligence Report</h1>
             <p class="report-subtitle">{{ report_title }}</p>
-            <div class="meta-info">
-                <p><strong>Prepared for:</strong> {{ user_name }}</p>
-                <p><strong>Date:</strong> {{ generation_date }}</p>
-            </div>
         </div>
         <div class="footer">
-            A creation of the Supervity Intelligence Agent
+            <p><strong>Prepared for:</strong> {{ user_name }}</p>
+            <p><strong>Date:</strong> {{ generation_date }}</p>
         </div>
     </section>
 
-    <!-- 
-      This is the Table of Contents.
-    -->
-    <nav id="toc">
-        <h1 class="toc-title">Table of Contents</h1>
-        {{ toc_html | safe }}
-    </nav>
+    <!-- Page 2: Table of Contents -->
+    <section class="toc-page">
+        <h1 class="toc-main-title">Contents</h1>
+        <nav class="toc-nav">
+            {{ toc_html|safe }}
+        </nav>
+    </section>
 
-    <!-- 
-      This is the main report body.
-    -->
-    <article id="report-body">
-        {{ html_body | safe }}
+    <!-- Subsequent Pages: Report Body -->
+    <article class="report-body">
+        {{ html_body|safe }}
     </article>
 </body>
 </html> 
