@@ -30,6 +30,7 @@ celery_app.conf.update(
     accept_content=['json'],
     timezone='UTC',
     enable_utc=True,
+    broker_connection_retry_on_startup=True,
 )
 
 # This is where we will tell Celery where to find our task function.
