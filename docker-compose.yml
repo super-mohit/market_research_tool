@@ -1,33 +1,45 @@
 # File: docker-compose.yml (updated version)
-version: '3.8'
-
 services:
   # 1. The PostgreSQL Database Service
+  # This container runs our database.
   db:
     image: postgres:15-alpine
     container_name: market_intel_db
     volumes:
+      # Persists database data on the host machine in a named volume
       - postgres_data:/var/lib/postgresql/data
     ports:
+      # Exposes the DB port to your local machine for debugging with tools like DBeaver
       - "5432:5432"
     environment:
+      # These credentials must match the DATABASE_URL in your .env file
       - POSTGRES_USER=market_user
-      - POSTGRES_PASSWORD=supervity # Make sure this matches your .env
+      - POSTGRES_PASSWORD=supervity
       - POSTGRES_DB=market_intel_db
+    networks:
+      - market-intel-net
     healthcheck:
+      # This command checks if the database is ready to accept connections
       test: ["CMD-SHELL", "pg_isready -U market_user -d market_intel_db"]
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   # 2. The Redis Message Broker Service
+  # This container runs Redis, which Celery uses for queuing tasks.
   redis:
     image: redis:7-alpine
     container_name: market_intel_redis
     ports:
+      # Exposes Redis port for debugging with redis-cli if needed
       - "6379:6379"
+    networks:
+      - market-intel-net
+    restart: unless-stopped
 
   # 3. The FastAPI Web Service
+  # This container runs your main API application.
   api:
     build:
       context: .
@@ -35,35 +47,54 @@ services:
     container_name: market_intel_api
     command: uvicorn api.server:app --host 0.0.0.0 --port 8000 --reload
     volumes:
-      - .:/app # Mount the local code into the container for hot-reloading
+      # Mounts your local code into the container for hot-reloading on changes
+      - .:/app
     ports:
       - "8000:8000"
     env_file:
-      - .env # Load environment variables from the .env file
+      # Loads all variables from the .env file
+      - .env
+    networks:
+      - market-intel-net
     depends_on:
+      # Ensures the API service only starts after its dependencies are ready
       db:
-        condition: service_healthy # Wait for the DB to be ready
+        condition: service_healthy # Waits for the DB healthcheck to pass
       redis:
-        condition: service_started # Wait for Redis to start
+        condition: service_started # Waits for Redis to start
+    restart: unless-stopped
 
   # 4. The Celery Background Worker Service
+  # This container runs the Celery worker to process long-running research jobs.
   worker:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: market_intel_worker
+    # Command to start the celery worker with gevent for concurrency
     command: celery -A celery_worker.celery_app worker --loglevel=info -P gevent
     volumes:
-      - .:/app # Mount the local code for hot-reloading
+      # Mounts your local code so worker also sees changes
+      - .:/app
     env_file:
-      - .env # Use the same .env file
+      - .env
+    environment:
+      - PYTHONPATH=/app
+    networks:
+      - market-intel-net
     depends_on:
-      api:
-        condition: service_started # It depends on the same code and environment
-      redis:
-        condition: service_started
+      # The worker also needs the DB and Redis to be ready
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
 
+# Top-level network definition for clean communication between services
+networks:
+  market-intel-net:
+    driver: bridge
+
+# Top-level volume definition for database persistence
 volumes:
   postgres_data:

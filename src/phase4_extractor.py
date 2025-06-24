@@ -56,40 +56,35 @@ def extract_data_from_single_url_sync(
         current_year = current_date.year
         target_years = f"{current_year - constants.RECENT_YEARS + 1}-{current_year}"
         
-        instruction = (
-            f"You are a high-precision data extraction engine. Your sole function is to parse an online document and extract specific, structured information related to the coatings industry. You must be rigorous and discard any item that does not meet the criteria perfectly. Today's date is {current_date.strftime('%Y-%m-%d')}.\n\n"
-            
-            f"**SOURCE URL TO ANALYZE:** {url}\n\n"
-            
-            "**EXTRACTION TASK & CATEGORIES:**\n"
-            "From the URL content, extract ONLY English-language items from the last {constants.RECENT_YEARS} years ({target_years}) that fit one of these exact categories:\n"
-            "• **News**: Company announcements, market reports, financial updates.\n"
-            "• **Patents**: Patent applications, grants, or detailed technical whitepapers on novel technology.\n"
-            "• **Conference**: Announcements or summaries of industry events, webinars, or presentations.\n"
-            "• **Legalnews**: Regulatory updates, new chemical standards, or legal cases relevant to coatings.\n\n"
-            
-            "**JSON OBJECT FIELD REQUIREMENTS (STRICT):**\n"
-            "For each qualifying item, create a JSON object with these exact 5 fields:\n\n"
-            
-            "1. **`type`**: (String) Must be one of: 'News', 'Patents', 'Conference', 'Legalnews'. Classify based on the primary focus of the content.\n\n"
-            
-            "2. **`title`**: (String) The official title of the article or patent. If none, create a concise, descriptive title (5-15 words). MUST be relevant to coatings.\n\n"
-            
-            "3. **`summary`**: (String, 100-300 words) A self-contained, detailed summary. Must include key entities (companies, products), quantitative data (percentages, market values), and the core finding's significance to the coatings industry. Do not assume the user will read the source.\n\n"
-            
-            "4. **`date`**: (String or Null) The publication date in **YYYY-MM-DD** format. If only month/year are available, use the first day (e.g., '2024-05-01'). If the date cannot be reliably determined or is outside the {constants.RECENT_YEARS}-year window, this field MUST be `null`.\n\n"
-            
-            "5. **`source_url`**: (String) The exact URL provided for analysis: `{url}`\n\n"
-            
-            "**RIGOROUS QUALITY CONTROL:**\n"
-            "• **Precision is Key:** If an item is ambiguous or its relevance to coatings is weak, **DO NOT** include it. It is better to return an empty array than incorrect data.\n"
-            "• **No Duplicates:** If one article mentions two separate products, create two distinct JSON objects.\n"
-            "• **Validate Dates:** Strictly enforce the recency filter. Exclude older content.\n"
-            "• **Strict JSON:** The final output must be a single, valid JSON array `[...]`. No text before or after.\n\n"
-            
-            "**FINAL OUTPUT FORMAT:**\n"
-            "Return a valid JSON array of objects. Return an empty array `[]` if no qualifying items are found."
-        )
+        instruction = f"""
+You are a high-precision, automated data extraction engine. Your sole function is to parse an online document and extract specific, structured information related to the coatings industry. You must be rigorous and discard any item that does not meet the criteria perfectly. Today's date is {current_date.strftime('%Y-%m-%d')}.
+
+**Source URL to Analyze:** {url}
+
+**Extraction Task & Categories:**
+From the URL content, extract ONLY English-language items from the last {constants.RECENT_YEARS} years ({target_years}) that fit one of these exact categories:
+- **News**: Company announcements, M&A activity, market reports, financial updates.
+- **Patents**: Patent applications, grants, or detailed technical whitepapers on novel technology.
+- **Conference**: Announcements or summaries of industry events, webinars, or presentations.
+- **Legalnews**: Regulatory updates, new chemical standards, or legal cases relevant to coatings.
+
+**JSON Object Field Requirements (MANDATORY):**
+For each qualifying item, create a JSON object with these exact 5 fields:
+1.  **`type`**: (String) MUST be one of: "News", "Patents", "Conference", "Legalnews".
+2.  **`title`**: (String) The official title. If none, create a concise, descriptive title (5-15 words).
+3.  **`summary`**: (String, 100-300 words) A self-contained, detailed summary. MUST include key entities (companies, products), quantitative data (percentages, values), and the core finding's significance to the coatings industry.
+4.  **`date`**: (String or Null) The publication date in **YYYY-MM-DD** format. If only month/year are available, use the first day (e.g., "2024-05-01"). If the date is outside the {constants.RECENT_YEARS}-year window or cannot be found, this field MUST be `null`.
+5.  **`source_url`**: (String) The exact URL: `{url}`
+
+**Rigorous Quality Control Protocol:**
+- **Precision is Key:** If an item is ambiguous or its relevance to coatings is weak, **DO NOT** include it. It is better to return an empty array than incorrect data.
+- **No Duplicates:** If one article mentions two separate products, create two distinct JSON objects.
+- **Validate Dates:** Strictly enforce the recency filter. If an item is too old, do not include it.
+- **Strict JSON:** The final output must be a single, valid JSON array `[...]`. No text before or after.
+
+**Final Output Format:**
+Return a valid JSON array of objects. Return an empty array `[]` if no qualifying items are found.
+"""
 
         contents = [
             types.Content(
@@ -101,6 +96,9 @@ def extract_data_from_single_url_sync(
         ]
         tools = [types.Tool(url_context=types.UrlContext())]
         config_obj = types.GenerateContentConfig(
+            thinking_config=types.ThinkingConfig(
+                thinking_budget=-1,
+            ),
             tools=tools,
             response_modalities=["TEXT"],
             safety_settings=[
@@ -109,9 +107,10 @@ def extract_data_from_single_url_sync(
                 types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
                 types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
             ],
+            response_mime_type="text/plain",
         )
         response = client.models.generate_content(
-            model="gemini-2.5-flash-preview-05-20",
+            model="gemini-2.5-flash",
             contents=contents,
             config=config_obj,
         )
@@ -120,12 +119,13 @@ def extract_data_from_single_url_sync(
             logging.warning(f"      → No content part in Gemini response for: {url}")
             return []
             
-        text_output = response.candidates[0].content.parts[0].text.strip()
-        # Extract the JSON array substring
-        match = re.search(r"\[.*\]", text_output, re.S)
+        text_output = response.candidates[0].content.parts[0].text
+        # Clean the response to find the JSON
+        match = re.search(r'\[.*\]', text_output, re.DOTALL)
         if not match:
             logging.warning(f"      → No JSON array in response for: {url}\n        Response: {text_output[:100]}...")
             return []
+            
         items = json.loads(match.group(0))
         return items if isinstance(items, list) else []
 
@@ -133,7 +133,7 @@ def extract_data_from_single_url_sync(
         logging.error(f"      → JSONDecodeError for URL {url}: {e}")
         return []
     except Exception as e:
-        logging.error(f"      → Error processing {url}: {e}")
+        logging.error(f"      → Error processing {url}: {e}", exc_info=True)
         return []
 
 async def run_structured_extraction(

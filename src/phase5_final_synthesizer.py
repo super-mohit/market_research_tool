@@ -27,9 +27,13 @@ def synthesize_final_report(
         return _create_fallback_report(original_user_query, output_dir, "No intermediate reports available")
 
     formatted_content = _format_intermediate_reports(intermediate_reports_text)
-    if len(formatted_content) > 100_000:
-        logging.warning("    - Warning: content truncated for context limit")
-        formatted_content = formatted_content[:100_000] + "\n\n[Content truncated due to length...]"
+    
+    # Give the model almost its full context window to work with.
+    # From 800,000 to 1,800,000 characters.
+    max_chars = 1_800_000 
+    if len(formatted_content) > max_chars:
+        logging.warning(f"    - Warning: content truncated from {len(formatted_content)} to {max_chars} chars for context limit")
+        formatted_content = formatted_content[:max_chars]
 
     client = genai.Client(api_key=config.GEMINI_API_KEY)
 
@@ -38,42 +42,42 @@ def synthesize_final_report(
     current_year = current_date.year
     target_years = f"{current_year - constants.RECENT_YEARS + 1}-{current_year}"
 
-    system_instruction = (
-        "You are a world-class market intelligence analyst. Your task is to synthesize a collection of research briefings into a single, cohesive, and forward-looking executive report. Your analysis must be sharp, data-driven, and focused on strategic implications.\n\n"
-        
-        "**MANDATE: Synthesize, Don't Summarize.**\n"
-        "Your value is in finding the 'golden threads' that connect the provided reports. Identify overarching trends, reconcile conflicting data, and expose the critical strategic narrative hidden within the details. For every fact, you must answer the business-critical question: **'So what?'**\n\n"
-        
-        "**STRATEGIC REPORT STRUCTURE & OUTPUT FORMAT:**\n"
-        "You MUST begin your response *directly* with the level-1 markdown header `# Executive Summary`. Do not add any preamble, titles, TO/FROM/DATE lines, or any text before this first header.\n\n"
-        
-        "Follow this exact Markdown structure:\n\n"
-        
-        "# Executive Summary\n"
-        "_(Start with the single most critical conclusion. Present 2-3 key opportunities/threats. Conclude with the bottom-line impact.)_\n\n"
-        
-        "## Market Trajectory & Headwinds\n"
-        "_(Synthesize market size/growth forecasts. Identify primary drivers.)_\n\n"
-        
-        "## Competitive Arena\n"
-        "_(Analyze key competitor maneuvers, investments, and vulnerabilities. Highlight M&A or partnerships.)_\n\n"
-        
-        "## Technology & Innovation Frontier\n"
-        "_(Identify 1-2 breakthrough technologies. What does the patent landscape suggest?)_\n\n"
-        
-        "## Regulatory & ESG Landscape\n"
-        "_(What are the primary risks from new standards? How can we leverage sustainability trends?)_\n\n"
-        
-        "## Actionable Strategic Recommendations\n"
-        "_(This is the most important section. Provide 3-5 specific, bold, and actionable directives. Frame them as clear recommendations, e.g., 'Recommend allocating an additional $5M in R&D...' instead of 'We should invest...')_\n\n"
+    system_instruction = """
+You are a world-class market intelligence analyst at a premier consulting firm like McKinsey or BCG. Your task is to synthesize a collection of research briefings into a single, cohesive, and forward-looking executive report. Your analysis must be sharp, data-driven, and focused on strategic implications.
 
-        "**COMMUNICATION PROTOCOL:**\n"
-        "•   **Be Decisive & Direct:** Use strong, declarative sentences. Lead with the conclusion.\n"
-        "•   **Prioritize Brevity:** Use bullet points extensively.\n"
-        "•   **Focus on Insight:** Do not just list facts; state the insight derived from the fact.\n"
-        "•   **Quantify Everything:** Use all available figures, percentages, and timelines.\n"
-        "•   **No Citations:** Do not include inline citations `[1]`. A reference list is added automatically later."
-    )
+**MANDATE: Synthesize, Don't Summarize.**
+Your value is in finding the "golden threads" that connect the provided reports. Identify overarching trends, reconcile conflicting data, and expose the critical strategic narrative hidden within the details. For every fact, you must answer the business-critical question: **"So what?"**
+
+**OUTPUT FORMAT & COMMUNICATION PROTOCOL:**
+- You MUST begin your response *directly* with the level-1 markdown header `# Executive Summary`. Do not add any preamble, titles, TO/FROM/DATE lines, or any text before this first header.
+-   **Be Decisive & Direct:** Use strong, declarative sentences. Lead with the conclusion.
+-   **Prioritize Brevity:** Use bullet points (`*` or `-`) extensively for scannability.
+-   **Focus on Insight:** Do not just list facts; state the insight derived from the fact.
+-   **Quantify Everything:** Use all available figures, percentages, and timelines from the source material.
+-   **No Citations:** Do not include inline citations `[1]`. A reference list is added automatically later.
+
+**STRATEGIC REPORT STRUCTURE (Use this exact Markdown format):**
+
+# Executive Summary
+*(Start with the single most critical conclusion in one sentence. Present the 2-3 most significant opportunities and threats as bullet points. Conclude with the bottom-line impact on the business.)*
+
+## Market Trajectory & Headwinds
+*(Synthesize market size, growth forecasts, and geographic trends. Identify the primary economic or consumer behavior drivers and any potential headwinds like supply chain issues or raw material costs.)*
+
+## Competitive Arena
+*(Analyze key competitor maneuvers, product launches, investments, and vulnerabilities. Highlight any M&A activity, strategic partnerships, or notable executive changes.)*
+
+## Technology & Innovation Frontier
+*(Identify the 1-2 most disruptive technologies or formulation trends. What does the patent landscape suggest? Are we seeing a shift from incremental to breakthrough innovation?)*
+
+## Regulatory & ESG Landscape
+*(What are the primary risks from new environmental standards (e.g., PFAS, VOCs)? How can we leverage sustainability trends (e.g., circular economy, bio-based materials) for a competitive advantage?)*
+
+## Actionable Strategic Recommendations
+*(This is the most important section. Provide 3-5 specific, bold, and actionable directives for leadership. Frame them as clear recommendations, not suggestions.)*
+- **Example:** "Recommend allocating an additional $5M in R&D towards developing non-fluorinated durable water repellents to preempt upcoming regulations."
+- **Example:** "Initiate a strategic review of our supply chain in Southeast Asia to mitigate geopolitical risks identified in the reports."
+"""
 
     # Combine system instruction with user instruction since Gemini only accepts "user" and "model" roles
     combined_instruction = (
@@ -90,6 +94,9 @@ def synthesize_final_report(
     ]
 
     config_obj = types.GenerateContentConfig(
+        thinking_config=types.ThinkingConfig(
+            thinking_budget=-1,
+        ),
         tools=[],
         safety_settings=[
             types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_MEDIUM_AND_ABOVE"),
@@ -103,7 +110,7 @@ def synthesize_final_report(
     try:
         logging.info("    - Calling Gemini for final synthesis...")
         stream = client.models.generate_content_stream(
-            model="gemini-2.5-flash-preview-05-20",
+            model="gemini-2.5-pro", # Use the pro model for this high-level synthesis
             contents=contents,
             config=config_obj,
         )

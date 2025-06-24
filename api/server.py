@@ -13,9 +13,12 @@ import httpx
 from sqlalchemy.orm import Session
 from sqlalchemy import text, desc
 from pydantic import BaseModel, EmailStr
-from typing import Optional
-from io import BytesIO
+from typing import Optional, List
+from io import BytesIO, StringIO
 import tempfile
+import zipfile
+import csv
+from weasyprint import HTML  # ++ NEW IMPORT for PDF generation
 
 # --- Logging Import ---
 from api.logging_config import setup_logging
@@ -32,16 +35,21 @@ from api.auth import get_current_user_from_query  # Import the new dependency
 # --- App Imports ---
 from api.models import (
     ResearchRequest, JobSubmissionResponse, JobStatusResponse, ResearchResult, ExtractedData,
-    RAGQueryRequest, RAGQueryResponse, RAGCollectionInfo, JobHistoryResponse
+    RAGQueryRequest, RAGQueryResponse, RAGCollectionInfo, JobHistoryResponse,
+    TopicRequest, GeneratedTagsResponse, OverviewData,  # <-- ADD OverviewData import
+    ExportRequest  # <-- NEW IMPORT for Export Center
 )
 from src.config import assert_all_env, assert_rag_env
 from src.rag_uploader import query_rag_collection
+from src.query_enhancer import generate_tags_from_topic # <-- NEW IMPORT
 
 # +++ Import the Celery task +++
 from src.tasks import run_research_pipeline_task
 
 # +++ Import PDF generation utilities +++
 from src.utils.pdf_generator import ProfessionalPDFGenerator
+
+
 
 # +++ NEW: Pydantic models for auth +++
 class UserCreate(BaseModel):
@@ -156,6 +164,28 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     access_token = auth.create_access_token(data={"sub": user.id})
     return {"access_token": access_token, "token_type": "bearer"}
 
+
+# --- NEW: Smart Query Generation Endpoint ---
+@app.post("/api/research/generate-tags", response_model=GeneratedTagsResponse)
+async def suggest_research_tags(
+    request: TopicRequest,
+    current_user: DBUser = Depends(auth.get_current_user) # Protect the route
+):
+    """
+    Accepts a user's topic and uses an LLM to generate a structured set
+    of categorized keywords and search phrases for refining the research.
+    """
+    if not request.topic.strip():
+        raise HTTPException(status_code=400, detail="Topic cannot be empty.")
+
+    try:
+        tags_data = generate_tags_from_topic(request.topic)
+        return tags_data
+    except Exception as e:
+        logging.error(f"Error in generate-tags endpoint: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to generate tags due to an internal error.")
+
+
 # --- Background Task (Moved to Celery) ---
 # The run_and_store_results function has been moved to src/tasks.py as a Celery task
 
@@ -163,6 +193,25 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 def _dict_to_extracted_model(raw_dict: dict) -> ExtractedData:
     padded = {k: raw_dict.get(k, []) for k in ["News", "Patents", "Conference", "Legalnews", "Other"]}
     return ExtractedData(**padded)
+
+
+# --- Helper function for CSV generation ---
+def _generate_csv_bytes(items: List[dict]) -> bytes:
+    """Converts a list of dictionaries to CSV formatted bytes."""
+    if not items:
+        return b""
+    
+    # Use StringIO to build the CSV in memory
+    output = StringIO()
+    # Use the keys from the first item as headers
+    headers = items[0].keys()
+    writer = csv.DictWriter(output, fieldnames=headers)
+    
+    writer.writeheader()
+    writer.writerows(items)
+    
+    # Return the string as UTF-8 encoded bytes
+    return output.getvalue().encode('utf-8')
 
 
 # --- API Endpoints (Now DB-aware) ---
@@ -314,6 +363,10 @@ async def get_research_result(job_id: str, current_user: DBUser = Depends(auth.g
             status='completed',
             original_query=job.result.get("original_query"),
             final_report_markdown=job.result.get("final_report_markdown"),
+            # +++ THIS IS THE FIX: Pass the overview_data to the response model +++
+            overview_data=job.result.get("overview_data"),
+            # +++ ADD THIS LINE +++
+            strategic_insights=job.result.get("strategic_insights"),
             extracted_data=_dict_to_extracted_model(job.result.get("extracted_data", {})),
             metadata=enhanced_metadata
         )
@@ -511,7 +564,15 @@ async def download_research_pdf(
         raise HTTPException(status_code=404, detail="Completed job not found")
 
     report_md = job.result.get("final_report_markdown", "No content available.")
-    report_title = job.original_query[:80] # Truncate title
+    
+    # Extract a more meaningful title from the query instead of a hard truncation.
+    # We'll use the first non-empty line as the subtitle.
+    query_lines = job.original_query.strip().split('\n')
+    report_title = next((line.strip() for line in query_lines if line.strip()), "Market Research Summary")
+    
+    # Apply a more generous length limit to prevent excessively long subtitles.
+    # The CSS will handle wrapping the text gracefully.
+    report_title = report_title[:200]
 
     try:
         pdf_generator = ProfessionalPDFGenerator()
@@ -525,5 +586,72 @@ async def download_research_pdf(
     except Exception as e:
         logging.error(f"PDF generation failed for job {job_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to generate PDF report.")
+
+
+# +++ NEW: The Export Center Endpoint +++
+@app.post("/api/research/{job_id}/export")
+async def export_research_package(
+    job_id: str,
+    request: ExportRequest,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(auth.get_current_user)
+):
+    """
+    Generates a downloadable .zip package containing selected research assets.
+    """
+    job = db.query(DBJob).filter(DBJob.id == job_id, DBJob.user_id == current_user.id).first()
+    if not job or job.status != 'completed' or not job.result:
+        raise HTTPException(status_code=404, detail="Completed job with results not found for the current user.")
+
+    # Create an in-memory ZIP file
+    in_memory_zip = BytesIO()
+    with zipfile.ZipFile(in_memory_zip, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for asset in request.assets:
+            try:
+                if asset.type == 'report':
+                    if asset.format == 'pdf':
+                        pdf_generator = ProfessionalPDFGenerator()
+                        pdf_bytes = pdf_generator.generate_pdf_from_markdown(
+                            job.result.get("final_report_markdown", ""),
+                            job.original_query[:80],
+                            current_user.name or current_user.email
+                        )
+                        zipf.writestr("Executive_Report.pdf", pdf_bytes)
+                        logging.info(f"Job {job_id}: Added PDF report to export package.")
+                    elif asset.format == 'md':
+                        md_content = job.result.get("final_report_markdown", "")
+                        zipf.writestr("Executive_Report.md", md_content.encode('utf-8'))
+                        logging.info(f"Job {job_id}: Added Markdown report to export package.")
+
+                elif asset.type == 'data' and asset.include:
+                    structured_data = job.result.get("extracted_data", {})
+                    for data_type in asset.include:
+                        items = structured_data.get(data_type, [])
+                        if not items:
+                            continue # Skip empty data types
+                        
+                        if asset.format == 'csv':
+                            csv_bytes = _generate_csv_bytes(items)
+                            zipf.writestr(f"data/{data_type}.csv", csv_bytes)
+                        elif asset.format == 'json':
+                            json_bytes = json.dumps(items, indent=2).encode('utf-8')
+                            zipf.writestr(f"data/{data_type}.json", json_bytes)
+                    logging.info(f"Job {job_id}: Added structured data (types: {asset.include}) as {asset.format} to export package.")
+
+
+
+            except Exception as e:
+                logging.error(f"Failed to generate asset '{asset.type}' in format '{asset.format}' for job {job_id}: {e}", exc_info=True)
+                # Add an error file to the zip to inform the user
+                zipf.writestr(f"ERROR_{asset.type}.txt", f"Failed to generate this asset. Error: {e}")
+
+    # Reset the buffer's pointer to the beginning before reading
+    in_memory_zip.seek(0)
+    
+    # Set headers for file download
+    file_name = f"Supervity_Export_{job_id[:8]}.zip"
+    headers = {'Content-Disposition': f'attachment; filename="{file_name}"'}
+    
+    return StreamingResponse(in_memory_zip, media_type="application/zip", headers=headers)
 
 

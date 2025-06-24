@@ -5,7 +5,7 @@ import time
 import logging
 from concurrent.futures import ThreadPoolExecutor
 import os
-from typing import Callable, Any  # <-- Import Callable and Any
+from typing import Callable, Any, List, Dict  # <-- Add List and Dict
 
 # Keep all your existing phase imports
 from src.phase1_planner import generate_search_queries
@@ -46,25 +46,56 @@ async def execute_research_pipeline(
     
     logging.info(f"-> Phase 2 Complete: {len(tagged_urls)} URLs collected.")
     
-    # Prepare URL buckets
-    bucketed: dict[str, list[str]] = {}
+    # +++ START: REVISED URL DISTRIBUTION LOGIC +++
+    
+    # 1. Create a dictionary to hold all URLs bucketed by their tag.
+    bucketed: Dict[str, List[str]] = {}
     for url, bucket in tagged_urls:
         bucketed.setdefault(bucket, []).append(url)
 
-    general_urls = bucketed.get("General", [])[:MAX_GENERAL_FOR_REPORT]
-    news_urls = bucketed.get("News", [])[:MAX_PER_BUCKET_EXTRACT]
-    patents_urls = bucketed.get("Patents", [])[:MAX_PER_BUCKET_EXTRACT]
-    conf_urls = bucketed.get("Conference", [])[:MAX_PER_BUCKET_EXTRACT]
-    legalnews_urls = bucketed.get("Legalnews", [])[:MAX_PER_BUCKET_EXTRACT]
+    # 2. Define which buckets are for specific data extraction vs. general reporting.
+    extraction_buckets = {"News", "Patents", "Conference", "Legalnews"}
+    report_buckets = {"General", "News"}  # Let's use "News" for the main report as well.
 
-    report_urls = general_urls
-    extract_urls = news_urls + patents_urls + conf_urls + legalnews_urls
-    url2tag = {u: "News" for u in news_urls} | \
-              {u: "Patents" for u in patents_urls} | \
-              {u: "Conference" for u in conf_urls} | \
-              {u: "Legalnews" for u in legalnews_urls}
+    # 3. Create a pool of all unique URLs for potential use in the report.
+    # We prioritize URLs from report-oriented buckets, but include others to ensure we have content.
+    report_url_pool = []
+    seen_urls = set()
+
+    # Add URLs from designated report buckets first
+    for bucket_name in report_buckets:
+        for url in bucketed.get(bucket_name, []):
+            if url not in seen_urls:
+                report_url_pool.append(url)
+                seen_urls.add(url)
     
+    # Add URLs from other buckets if we need more content, avoiding duplicates
+    for bucket_name, urls in bucketed.items():
+        if bucket_name not in report_buckets:
+            for url in urls:
+                if url not in seen_urls:
+                    report_url_pool.append(url)
+                    seen_urls.add(url)
+
+    # 4. Create the final lists for each pipeline path, applying limits.
+    report_urls = report_url_pool[:MAX_GENERAL_FOR_REPORT]
+    
+    extract_urls: List[str] = []
+    url2tag: Dict[str, str] = {}
+    
+    for bucket_name in extraction_buckets:
+        # Get URLs for this extraction bucket, applying the per-bucket limit
+        urls_for_bucket = bucketed.get(bucket_name, [])[:MAX_PER_BUCKET_EXTRACT]
+        extract_urls.extend(urls_for_bucket)
+        for url in urls_for_bucket:
+            url2tag[url] = bucket_name
+    
+    # Ensure there are no duplicates in the final list
+    extract_urls = list(dict.fromkeys(extract_urls))
+
     logging.info(f"-> URL Distribution: Report={len(report_urls)}, Extract={len(extract_urls)}")
+    
+    # +++ END: REVISED URL DISTRIBUTION LOGIC +++
 
     # 🔥 CRITICAL CHANGE: Start extraction and synthesis in parallel
     await update_status(stage="synthesizing", progress=50, message="Starting parallel analysis...")
@@ -74,24 +105,34 @@ async def execute_research_pipeline(
         run_structured_extraction(extract_urls, user_query, url2tag)
     )
     
-    # Start intermediate synthesis in parallel
-    url_batches = [report_urls[i:i+15] for i in range(0, len(report_urls), 15)]
-    intermediate_reports_task = asyncio.get_event_loop().run_in_executor(
-        ThreadPoolExecutor(1),
-        synthesize_all_intermediate_reports,
-        user_query,
-        url_batches,
-        "reports/intermediate_reports",
-        True,
-        MAX_BATCH_WORKERS
-    )
-    
-    # Wait for both to complete
-    logging.info("-> Running extraction and synthesis in parallel...")
-    intermediate_reports, extraction_payload = await asyncio.gather(
-        intermediate_reports_task,
-        extraction_task
-    )
+    # Start intermediate synthesis in parallel (with safety check)
+    if not report_urls:
+        logging.warning("No URLs were allocated for the main report. The final report may be sparse.")
+        intermediate_reports = []
+        # Only wait for extraction task
+        logging.info("-> Running extraction only (no URLs for report synthesis)...")
+        _, extraction_payload = await asyncio.gather(
+            asyncio.sleep(0),  # Dummy task to keep gather structure
+            extraction_task
+        )
+    else:
+        url_batches = [report_urls[i:i+15] for i in range(0, len(report_urls), 15)]
+        intermediate_reports_task = asyncio.get_event_loop().run_in_executor(
+            ThreadPoolExecutor(1),
+            synthesize_all_intermediate_reports,
+            user_query,
+            url_batches,
+            "reports/intermediate_reports",
+            True,
+            MAX_BATCH_WORKERS
+        )
+        
+        # Wait for both to complete
+        logging.info("-> Running extraction and synthesis in parallel...")
+        intermediate_reports, extraction_payload = await asyncio.gather(
+            intermediate_reports_task,
+            extraction_task
+        )
     
     logging.info(f"-> Parallel processing complete.")
     

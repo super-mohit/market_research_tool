@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ chart_title }}</title>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #ffffff; color: #0A194E; margin: 0; padding: 40px; }
+        h1 { text-align: center; color: #0A194E; font-size: 24px; margin-bottom: 30px; }
+        .swot-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 800px;
+        }
+        .quadrant {
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        .quadrant h2 {
+            font-size: 18px;
+            margin-top: 0;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .quadrant ul {
+            list-style-type: '✓  ';
+            padding-left: 20px;
+            margin: 0;
+        }
+        .quadrant li {
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        .strengths { background-color: #f0fff4; border-left: 4px solid #48bb78; }
+        .weaknesses { background-color: #fffaf0; border-left: 4px solid #ed8936; }
+        .opportunities { background-color: #ebf8ff; border-left: 4px solid #4299e1; }
+        .threats { background-color: #fff5f5; border-left: 4px solid #f56565; }
+    </style>
+</head>
+<body>
+    <h1>{{ chart_title }}</h1>
+    <div class="swot-grid">
+        <div class="quadrant strengths">
+            <h2>Strengths</h2>
+            <ul>
+                {% for item in swot_data.strengths %}<li>{{ item }}</li>{% endfor %}
+            </ul>
+        </div>
+        <div class="quadrant weaknesses">
+            <h2>Weaknesses</h2>
+            <ul>
+                {% for item in swot_data.weaknesses %}<li>{{ item }}</li>{% endfor %}
+            </ul>
+        </div>
+        <div class="quadrant opportunities">
+            <h2>Opportunities</h2>
+            <ul>
+                {% for item in swot_data.opportunities %}<li>{{ item }}</li>{% endfor %}
+            </ul>
+        </div>
+        <div class="quadrant threats">
+            <h2>Threats</h2>
+            <ul>
+                {% for item in swot_data.threats %}<li>{{ item }}</li>{% endfor %}
+            </ul>
+        </div>
+    </div>
+</body>
+</html> 

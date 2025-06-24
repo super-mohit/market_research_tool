@@ -1,6 +1,6 @@
 # api/models.py
-from typing import List, Optional, Dict, Any, Union
-from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any, Union, Literal
+from pydantic import BaseModel, Field, constr
 from datetime import datetime
 
 # --- Request Models ---
@@ -80,6 +80,46 @@ class RAGInfo(BaseModel):
     rag_error: Optional[str] = Field(None, description="Error message if RAG upload failed")
 
 
+# +++ START: ADD THIS NEW MODEL +++
+class OverviewData(BaseModel):
+    """
+    Pydantic model for the visual overview data generated in Phase 6.
+    """
+    short_summary: Optional[str] = None
+    word_cloud: Optional[List[Dict[str, Any]]] = None
+    swot_analysis: Optional[Dict[str, Any]] = None
+    geographic_insights: Optional[Dict[str, Any]] = None
+    competitive_radar: Optional[Dict[str, Any]] = None
+    tech_hype_cycle: Optional[List[Dict[str, Any]]] = None
+
+    class Config:
+        from_attributes = True
+        extra = "allow" # Allows for flexibility if more fields are added
+# +++ END: ADD THIS NEW MODEL +++
+
+
+# +++ START: ADD NEW MODELS FOR PERSONALIZED STRATEGY +++
+class StrategicInsightItem(BaseModel):
+    title: str
+    justification: str
+    impact: Literal["High", "Medium", "Low"]
+    timeframe: Literal["Short-Term (0-1yr)", "Medium-Term (1-3yr)", "Long-Term (3+yr)"]
+
+class ActionItem(BaseModel):
+    action: str
+    department: Literal["R&D", "Marketing", "Business Development", "Operations", "Executive Leadership"]
+    urgency: Literal["High", "Medium", "Low"]
+
+class StrategicInsightsData(BaseModel):
+    market_positioning: Optional[str] = None
+    key_opportunities: Optional[List[StrategicInsightItem]] = None
+    key_threats: Optional[List[StrategicInsightItem]] = None
+    recommended_actions: Optional[List[ActionItem]] = None
+    executive_summary: Optional[str] = None
+    error: Optional[str] = None
+# +++ END: ADD NEW MODELS +++
+
+
 class ResearchResult(BaseModel):
     """The final, complete result of a research job."""
     job_id: str
@@ -87,6 +127,8 @@ class ResearchResult(BaseModel):
     original_query: str = Field(..., description="The original research query")
     final_report_markdown: str = Field(..., description="Complete final report in markdown format")
     extracted_data: ExtractedData = Field(..., description="Structured extracted data categorized by type")
+    overview_data: Optional[OverviewData] = Field(None, description="Data for visual overview dashboard")
+    strategic_insights: Optional[StrategicInsightsData] = Field(None, description="Personalized strategic analysis for Wacker")
     metadata: Dict[str, Any] = Field(..., description="Additional metadata including extraction stats and RAG info")
 
 
@@ -122,3 +164,36 @@ class JobHistoryItem(BaseModel):
 
 class JobHistoryResponse(BaseModel):
     jobs: List[JobHistoryItem]
+
+
+# --- NEW: Models for Smart Tag Generation ---
+
+class TopicRequest(BaseModel):
+    """Request to generate categorized search tags from a topic."""
+    topic: str = Field(
+        ...,
+        description="The user's initial research topic or a full query.",
+        example="Innovations in epoxy coatings",
+        min_length=3,
+        max_length=2000
+    )
+
+class GeneratedTagsResponse(BaseModel):
+    """Response containing AI-generated, categorized conceptual tags."""
+    performance_attributes: List[str] = Field(..., description="Physical or chemical properties and benefits.")
+    technologies_and_materials: List[str] = Field(..., description="Specific chemistries, materials, or processes.")
+    market_and_business: List[str] = Field(..., description="High-level business, market, or strategic concepts.")
+    key_players_and_products: List[str] = Field(..., description="Specific companies or well-known product lines.")
+
+
+# --- NEW: Models for the Export Center ---
+
+class ExportAsset(BaseModel):
+    """Defines a single asset to be included in the export package."""
+    type: Literal["report", "data"] = Field(..., description="The type of asset to export.")
+    format: Literal["pdf", "md", "csv", "json"] = Field(..., description="The desired file format for the asset.")
+    include: Optional[List[str]] = Field(None, description="For 'data' type, a list of categories to include (e.g., ['News', 'Patents']).")
+
+class ExportRequest(BaseModel):
+    """The request body for the export endpoint."""
+    assets: List[ExportAsset] = Field(..., min_items=1, description="A list of assets to be exported.")

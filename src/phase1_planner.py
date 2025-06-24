@@ -35,37 +35,46 @@ def generate_search_queries(user_input: str) -> dict[str, list[str]]:
         
         # 2. Define the enhanced prompt
         prompt = f"""
-You are a world-class market intelligence strategist for a top-tier global chemical company, with deep expertise in the decorative and industrial coatings sectors. Your mission is to formulate precise search queries to uncover actionable intelligence for our business and R&D teams.
+You are a world-class market intelligence strategist for a top-tier global chemical company, with deep expertise in the decorative and industrial coatings sectors. Your mission is to formulate a **strategic search plan** to uncover actionable intelligence for our business and R&D teams.
 
-CURRENT DATE CONTEXT:
+**Current Date Context:**
 Today is {current_month} {current_date.day}, {current_year}. The intelligence must be current. Prioritize information from {current_year} and the last {constants.RECENT_YEARS} years ({current_year - constants.RECENT_YEARS + 1}-{current_year}).
 
-USER'S STRATEGIC OBJECTIVE:
+**User's Strategic Objective:**
+---
 {user_input}
+---
 
-TASK:
-Generate a JSON dictionary of Google Custom Search Engine (CSE) queries. These queries will be run against a curated list of trusted industry sources. Your queries must be designed to uncover breakthrough technologies, competitive shifts, regulatory changes, and emerging market needs.
+**Your Core Strategy: The 'Precision & Discovery' Model**
+Your goal is to create a portfolio of queries with a mix of two types:
+1.  **Precision Queries (60%):** These are highly specific, multi-term queries designed to find exact data points, competitor announcements, or specific technical papers. They are high-risk, high-reward.
+2.  **Discovery Queries (40%):** These are broader, using fewer keywords and often omitting date restrictions. Their purpose is to cast a wider net and find foundational context, market overviews, or related concepts you might not have thought of.
 
-QUERY BUCKETS:
-Group your queries into the following strategic buckets:
+**TASK:**
+Generate a JSON dictionary of Google Custom Search Engine (CSE) queries. Aim to generate **9-18 diverse queries per bucket**. These queries will be run against a curated list of trusted industry sources.
+
+**Query Buckets:**
 - "News": Corporate announcements, M&A activity, financial results, partnerships.
-- "Patents": Patent filings, new intellectual property, and technical whitepapers. Focus on novel chemistries and formulations.
-- "Conference": Key findings, presentations, and announcements from major industry events (e.g., American Coatings Show, European Coatings Show).
+- "Patents": Patent filings, new intellectual property, and technical whitepapers.
+- "Conference": Key findings, presentations, and announcements from major industry events.
 - "Legalnews": New environmental regulations (like VOC limits), chemical bans, and compliance standards.
-- "General": Broader queries on technology trends, market analysis, and material science innovations.
+- "General": Broader queries on technology trends, market analysis, and material science innovations. Use this bucket for your 'Discovery' queries.
 
-MANDATORY RULES:
-1.  **Source Specificity:** Every query MUST use a `site:` operator to target a single domain from the user's provided list.
-2.  **Strategic Keywords:** Go beyond simple topics. Combine technologies (e.g., "polyurethane dispersion," "silane-modified polymers," "hydrophobic additives") with performance outcomes (e.g., "scuff resistance," "weatherability," "self-healing," "oleophobic") and business context (e.g., "market trend," "supply chain," "sustainability report").
-3.  **Recency Bias:** Embed recency terms in the queries: "{current_year}," "{current_year + 1} forecast," "latest," "emerging," "new."
-4.  **Actionable Intelligence Focus:** Formulate queries to find data. Think like a strategist: What would you search for to find competitor weaknesses or new market opportunities?
-5.  **Output Format:** Return ONLY the JSON object. Do not include any explanatory text, markdown formatting, or apologies.
+**MANDATORY RULES & GUIDELINES:**
+1.  **Source Specificity (Non-negotiable):** Every query MUST use a `site:` operator. Extract relevant domains from the user's objective (e.g., `coatingsworld.com`, `pcimag.com`, `paint.org`).
+2.  **Strategic Keyword Layering:**
+    *   For **Precision Queries**, combine specific technologies ("polyurethane dispersion") with performance outcomes ("scuff resistance") and business context ("market trend").
+    *   For **Discovery Queries**, use more fundamental terms ("sustainability coatings trends" or "weatherability testing standards").
+3.  **Intelligent Recency:**
+    *   Embed date terms like "{current_year}" or "latest" in *some* queries, especially for the "News" and "Conference" buckets.
+    *   For "Patents" and "General" queries, it is often better to **omit** date terms to find foundational or highly relevant older documents. Do not force a date into every query.
+4.  **Output Format:** Return ONLY the JSON object. Do not include any explanatory text, markdown formatting like ```json, or apologies.
 
-EXAMPLE OF A HIGH-QUALITY QUERY:
-"latest developments in scuff-resistant architectural coatings {current_year} site:coatingsworld.com"
-"sustainability initiatives AkzoNobel coatings {current_year + 1} report site:paint.org"
+**Example of a good query mix for "General":**
+- (Precision) `site:pcimag.com "hydrophobic additives" "weatherability" "coatings research" 2025`
+- (Discovery) `site:coatingsworld.com "sustainability in industrial coatings"`
 
-JSON OUTPUT STRUCTURE:
+**JSON Output Structure:**
 {{
   "News":        [ "...", "..." ],
   "Patents":     [ "...", "..." ],
@@ -88,6 +97,9 @@ JSON OUTPUT STRUCTURE:
         # 4. Create the generation configuration object
         # This is the correct way to specify safety and response type.
         generate_content_config = types.GenerateContentConfig(
+            thinking_config=types.ThinkingConfig(
+                thinking_budget=-1,
+            ),
             safety_settings=[
                 types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
                 types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
@@ -98,18 +110,19 @@ JSON OUTPUT STRUCTURE:
         )
 
         # 5. Make the API call using the CORRECT method: client.models.generate_content
-        model_name = "gemini-2.5-flash-preview-05-20"
+        model = "gemini-2.5-pro"
         response = client.models.generate_content(
-            model=f"models/{model_name}",
+            model=model,
             contents=contents,
             config=generate_content_config,
         )
         
         # 6. Parse the JSON response
-        raw = response.candidates[0].content.parts[0].text
-        data = json.loads(raw)
-        by_bucket = {k: data.get(k, []) for k in
-                    ["News","Patents","Conference","Legalnews","General"]}
+        raw_text = response.candidates[0].content.parts[0].text
+        data = json.loads(raw_text)
+        
+        expected_buckets = ["News", "Patents", "Conference", "Legalnews", "General"]
+        by_bucket = {k: data.get(k, []) for k in expected_buckets}
 
         # Clean the queries in each bucket to remove protocol and 'www' for the site: operator
         import re
@@ -138,15 +151,6 @@ JSON OUTPUT STRUCTURE:
         logging.info(f"Successfully generated and cleaned {total_queries} search queries across {len(cleaned_buckets)} buckets.")
         return cleaned_buckets
 
-    except json.JSONDecodeError as e:
-        logging.error(f"Failed to parse JSON from the LLM response. Error: {e}")
-        raw = None
-        try:
-            raw = response.candidates[0].content.parts[0].text
-        except Exception:
-            pass
-        logging.error(f"----- LLM Raw Response -----\n{raw if raw is not None else 'No text in response'}\n--------------------------")
-        return {k: [] for k in ["News","Patents","Conference","Legalnews","General"]}
-    except Exception as e:
-        logging.error(f"An unexpected error occurred during query generation: {e}")
+    except (json.JSONDecodeError, IndexError, Exception) as e:
+        logging.error(f"Failed during query generation: {e}", exc_info=True)
         return {k: [] for k in ["News","Patents","Conference","Legalnews","General"]}
